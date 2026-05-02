@@ -1,0 +1,45 @@
+{
+    "left_pinky": [
+        "`",
+        "1",
+        "lsft"
+    ],
+    "left_ring": [
+        "2",
+        "3",
+        "w",
+        "s",
+        "z",
+        "q",
+        "a"
+    ],
+    "left_middle": [
+        "4",
+        "e",
+        "d",
+        "x"
+    ],
+    "left_index": [
+        "5",
+        "6",
+        "7",
+        "r",
+        "t",
+        "y",
+        "u",
+        "f",
+        "g",
+        "h",
+        "j",
+        "c",
+        "v",
+        "b",
+        "n"
+    ],
+    "left_thumb": [
+        "spc"
+    ],
+    "right_thumb": [
+        "mback"
+    ]
+}

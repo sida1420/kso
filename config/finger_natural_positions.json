@@ -1,0 +1,26 @@
+{
+    "left":{
+        "x":{
+            "index": 4,
+            "middle": 3,
+            "ring": 2,
+            "pinky": 0.75,
+            "thumb": 5
+        },
+        "y":{
+            "index": 2,
+            "middle": 1,
+            "ring": 2,
+            "pinky": 3,
+            "thumb": 4
+        }
+    },
+    "right":{
+        "x":{
+            "thumb": -5
+        },
+        "y":{
+            "thumb": 4
+        }
+    }
+}

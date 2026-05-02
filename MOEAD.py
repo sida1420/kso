@@ -116,7 +116,7 @@ def run():
     # print(EP[min_indices[0]])
     # print(EP_eva[min_indices[0]])
     for i,idx in enumerate(min_indices):
-        layout.display(EP[idx],EP_eva[idx],name=f'top {i+1}')
+        layout.display(EP[idx],EP_eva[idx],name=f'top_{i+1}')
 
 
 

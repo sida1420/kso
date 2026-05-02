@@ -211,8 +211,10 @@ class Layout:
         for key, data in self.keys.items():
             if key not in self.remaps:
                 continue
+            ec='#0000FF'
+            fc='#ADD8E6'
             rect = patches.Rectangle((data._pos.x, data._pos.y), data._width, 1, 
-                         linewidth=0.1, edgecolor='blue', facecolor='lightblue', alpha=0.5)
+                         linewidth=0.1, edgecolor=ec, facecolor=fc, alpha=0.5)
             self.rects.append(rect)
             self.ax.add_patch(rect)
 
@@ -290,6 +292,8 @@ class Layout:
         self.ax.set_title(title[:-2])
         self.ax.autoscale_view()
         plt.savefig(f'output/{name}.svg')
+
+
 
 # l=Layout()
 # print(l.available_keybinds)

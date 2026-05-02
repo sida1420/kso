@@ -200,5 +200,7 @@ Example (default):
     "right_thumb": ["mback"]
 }
 ```
+It looks like this:
+![image](https://i.postimg.cc/Qt9yszHQ/keyboard-layout.png)
 
 ---

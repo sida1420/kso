@@ -32,7 +32,7 @@ A multi-objective optimizer for keyboard keybind layouts using MOEA/D. Optimizes
 ## Installation
 
 Requires **Python 3.7+**.
-
+After download Python, run this in terminal:
 ```bash
 pip install matplotlib numpy
 ```

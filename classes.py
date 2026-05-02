@@ -90,9 +90,16 @@ class Layout:
 
 
     def _init_keystrokes(self):
-        self.keystrokes={}
+        self.keystrokes=[]
         with open('config/keystrokes.json','r') as file:
-            self.keystrokes=list(json.load(file).values())
+            keystrokes_dict=json.load(file)
+            for name, keystroke in keystrokes_dict.items():
+                assert "keys" in keystroke, f"PLEASE ENTER KEYS FOR [{name.upper()}] IN keystrokes.json FILE FIRST!"
+
+                if "weight" not in keystroke:
+                    print(f"WARNING: Keystroke [{name}] in keystrokes.json file doesn't have a weight! Setting it to 1.")
+                    keystroke["weight"]=1
+            self.keystrokes=list(keystrokes_dict.values())
 
         #make 2 version of each keystoke: normal version and start with shift home version
         self.keystrokes+=[{"keys": ["lsft","home"]+keys_n_weight["keys"],"weight":keys_n_weight["weight"]/2} for keys_n_weight in self.keystrokes]
@@ -100,7 +107,7 @@ class Layout:
         # print(self.keystrokes)
         #add home, lsft, chat for safety
         self.keybinds=sorted({key for data in self.keystrokes for key in data['keys']}.union({'home','lsft','chat'}))
-        print(self.keybinds)
+        # print(self.keybinds)
         self.keybind2idx={keybind: i for i,keybind in enumerate(self.keybinds)}
 
         self.available_keybinds=[i for i, key in enumerate(self.keybinds) if key not in self.fixed_keys.values()]
@@ -124,13 +131,13 @@ class Layout:
 
         #turn dict to list and encode into indices
         self.keystrokes=[[[self.keybind2idx[key] for key in data["keys"]],data["weight"]] for data in self.keystrokes]
-        print(self.keystrokes)
+        # print(self.keystrokes)
 
 
         #encode fixed keys into indices that point to indices too
         self.fixed_keys={self.key2idx[key]:(self.keybind2idx[remap] if remap in self.keybind2idx else remap) for key,remap in self.fixed_keys.items()}
         self.chat_i=self.key2idx[self.chat]
-        print(self.fixed_keys)
+        # print(self.fixed_keys)
 
 
     def _init_layout(self):
@@ -163,6 +170,9 @@ class Layout:
         
         
         for key, remap in self.fixed_keys.items():
+            assert key in self.keys, f"KEY SLOT [{key.upper()}] YOU ASSIGNED IN fixed_keys.json FILE DOESN'T APPEAR IN layout.txt FILE!"
+
+
             if remap=='chat':
                 self.chat=key
         # self.fixed_keys.pop(self.chat)
@@ -173,7 +183,10 @@ class Layout:
             self.remaps={key: remap for key,remap in self.fixed_keys.items()}
             for line in file:
                 for key in line.split():
+                    assert key in self.keys, f"KEY SLOT [{key.upper()}] IN available_keys.txt FILE DOESN'T APPEAR IN layout.txt FILE!"
+
                     if key in self.fixed_keys:
+                        print(f"WARNING: Key [{key}] already in fixed_key.json, skipping it!")
                         continue
                     self.remaps[key]=key
 
@@ -190,10 +203,7 @@ class Layout:
         # print(self.fixed_keys)
         # print(self.key2idx)
         # print(self.idx2key)
-
-
-
-        
+    
     
     def _init_visual(self):
         self.rects=[]
@@ -217,7 +227,9 @@ class Layout:
     def _init_home_keys(self):
         self.home_keys={}
         with open('config/home_keys.json','r') as file: 
-            self.home_keys={finger:self.key2idx[key] for finger, key in json.load(file).items()}
+            for finger, key in json.load(file).items():
+                assert key in self.keys,  f"KEY SLOT [{key.upper()}] YOU ASSIGNED IN home_keys.json FILE DOESN'T APPEAR IN layout.txt FILE!"
+                self.home_keys[finger]=self.key2idx[key]
         
         natural_pos={}
 

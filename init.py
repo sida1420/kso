@@ -16,9 +16,9 @@ def init(layout:Layout):
         res[i]=j
     return res
 
-l=Layout()
-print(l.display(init(l)))
-print(l.home_keys)
+# l=Layout()
+# print(l.display(init(l)))
+# print(l.home_keys)
 
 
 

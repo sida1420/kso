@@ -11,5 +11,6 @@
         "right_ring": 1.6,
         "right_pinky": 2.5,
         "right_thumb": 1.0
-    }
+    },
+    "generation_limit": 500
 }

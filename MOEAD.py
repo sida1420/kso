@@ -9,20 +9,28 @@ from classes import Point
 from classes import Layout
 import evaluate
 import json
-target_metrics={}
-with open('config/target_metrics.json') as file:
-    target_metrics=json.load(file)
 
-objectives=list(target_metrics.keys())
 
 def run():
+    target_metrics={}
+    with open('config/target_metrics.json') as file:
+        target_metrics=json.load(file)
+
+
+    iter_limit=500
+
+    with open('config/parameters.json') as file:
+        paras=json.load(file)
+    if "generation_limit" in paras:
+        iter_limit=paras["generation_limit"]
+
+    objectives=list(target_metrics.keys())
     #hyper parameters
     
     num_divisions=3
     num_objectives=len(objectives)
     num_neighbours=5
     replace_limit=3
-    iter_limit=500
     
     #Initilize
     layout=Layout()
@@ -103,6 +111,7 @@ def run():
     print('-\t'*10)
     # 3. Find the individual with the best (lowest) score
     min_indices = heapq.nsmallest(5, range(len(scores)),key=lambda idx: scores[idx])
+    print("\t\tFINISHED!")
     print(f"5 LOWEST DISTANCES: {[round(scores[idx],2) for idx in min_indices]}")
     # print(EP[min_indices[0]])
     # print(EP_eva[min_indices[0]])

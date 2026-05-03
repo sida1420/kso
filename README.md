@@ -4,30 +4,7 @@
 
 A multi-objective optimizer for keyboard keybind layouts using MOEA/D. Optimizes keybind placements.
 
-<table>
-  <tr>
-    <td>
-      <img src="./output/layout.svg" 
-           width="400" 
-           height="150" 
-           style="object-fit: cover; object-position: center;">
-    </td>
-    <td>
-      <img src="./output/top_1.svg" 
-           width="400" 
-           height="150" 
-           style="object-fit: cover; object-position: center;">
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <strong>From</strong><br>
-    </td>
-    <td align="center">
-      <strong>To</strong><br>
-    </td>
-  </tr>
-</table>
+<img src="./output/top_1.svg" width="400">
 
 ## Installation
 

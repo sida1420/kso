@@ -1,2 +1,5 @@
 - New mutation algorithm
++ rows swap?
++ columns swap?
++ key sequences swap if they have same length?
 - New crossover algorithm

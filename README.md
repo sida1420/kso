@@ -103,7 +103,7 @@ Example:
   }
 }
 ```
-> Key's names don't have to match my format, but they need to be consistent across files (name mustn't has space).
+> Key's names don't have to match my format, but they need to be consistent across files (name mustn't have space).
 
 #### fixed_keys.json
 

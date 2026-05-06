@@ -91,7 +91,7 @@ class Layout:
 
     def _init_keystrokes(self):
         self.keystrokes=[]
-        with open('config/keystrokes.json','r') as file:
+        with open('config/keystrokes.json','r', encoding='utf-8') as file:
             keystrokes_dict=json.load(file)
             for name, keystroke in keystrokes_dict.items():
                 assert "keys" in keystroke, f"PLEASE ENTER KEYS FOR [{name.upper()}] IN keystrokes.json FILE FIRST!"
@@ -164,7 +164,7 @@ class Layout:
 
     def _init_keys(self):
         self.fixed_keys={}
-        with open('config/fixed_keys.json','r') as file:
+        with open('config/fixed_keys.json','r', encoding='utf-8') as file:
             self.fixed_keys=json.load(file)
 
         

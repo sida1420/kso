@@ -70,7 +70,7 @@ def run():
         offspring_evas=evaluate.evaluate(offsprings,layout)
 
         # Visual.distribution(EP,target)
-        print(reference)
+        print(f"Idea metrics: {reference}")
         print(population[0])
         print(offsprings[0])
         temp=""

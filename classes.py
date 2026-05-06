@@ -64,23 +64,26 @@ class Layout:
         self._init_keystrokes()
         self._init_artist()
 
-
-        self.assigned_keys={}
-        with open('config/assigned_fingers.json','r') as file:
-            self.assigned_keys=json.load(file)
-
-        self.idx2finger=[None]*len(self.key2idx)
-
-        for finger, keys in self.assigned_keys.items():
-            for key in keys:
-                self.idx2finger[self.key2idx[key]]=finger
+        self._init_finger_rolls()
+        self._init_assigned_keys()
         self._init_home_keys()
         self._init_parameters()
-        self._init_finger_rolls()
         self._init_finger_distances()
         self._init_visual()
         # print(self.idx2finger)
 
+    def _init_assigned_keys(self):
+        self.assigned_keys={}
+        with open('config/assigned_fingers.json','r') as file:
+            self.assigned_keys=json.load(file)
+
+
+        self.idx2finger=[None]*len(self.key2idx)
+
+        for finger, keys in self.assigned_keys.items():
+            assert self._validate_finger(finger), f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN assigned_fingers.json FILE IS INVALID!"
+            for key in keys:
+                self.idx2finger[self.key2idx[key]]=finger
 
     def _init_artist(self):
         self.fig, self.ax = plt.subplots()
@@ -94,7 +97,7 @@ class Layout:
         with open('config/keystrokes.json','r', encoding='utf-8') as file:
             keystrokes_dict=json.load(file)
             for name, keystroke in keystrokes_dict.items():
-                assert "keys" in keystroke, f"PLEASE ENTER KEYS FOR [{name.upper()}] IN keystrokes.json FILE FIRST!"
+                assert "keys" in keystroke, f"\nPLEASE ENTER KEYS FOR [{name.upper()}] IN keystrokes.json FILE FIRST!"
 
                 if "weight" not in keystroke:
                     print(f"WARNING: Keystroke [{name}] in keystrokes.json file doesn't have a weight! Setting it to 1.")
@@ -170,7 +173,7 @@ class Layout:
         
         
         for key, remap in self.fixed_keys.items():
-            assert key in self.keys, f"KEY SLOT [{key.upper()}] YOU ASSIGNED IN fixed_keys.json FILE DOESN'T APPEAR IN layout.txt FILE!"
+            assert key in self.keys, f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN fixed_keys.json FILE DOESN'T APPEAR IN layout.txt FILE!"
 
 
             if remap=='chat':
@@ -183,7 +186,7 @@ class Layout:
             self.remaps={key: remap for key,remap in self.fixed_keys.items()}
             for line in file:
                 for key in line.split():
-                    assert key in self.keys, f"KEY SLOT [{key.upper()}] IN available_keys.txt FILE DOESN'T APPEAR IN layout.txt FILE!"
+                    assert key in self.keys, f"\nKEY SLOT [{key.upper()}] IN available_keys.txt FILE DOESN'T APPEAR IN layout.txt FILE!"
 
                     if key in self.fixed_keys:
                         print(f"WARNING: Key [{key}] already in fixed_key.json, skipping it!")
@@ -230,7 +233,8 @@ class Layout:
         self.home_keys={}
         with open('config/home_keys.json','r') as file: 
             for finger, key in json.load(file).items():
-                assert key in self.keys,  f"KEY SLOT [{key.upper()}] YOU ASSIGNED IN home_keys.json FILE DOESN'T APPEAR IN layout.txt FILE!"
+                assert self._validate_finger(finger), f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN home_keys.json FILE IS INVALID!"
+                assert key in self.keys,  f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN home_keys.json FILE DOESN'T APPEAR IN layout.txt FILE!"
                 self.home_keys[finger]=self.key2idx[key]
         
         natural_pos={}
@@ -240,6 +244,11 @@ class Layout:
         self.finger_natural_pos={}
         for ffinger in self.home_keys:
             hand, finger=ffinger.split("_")
+            assert hand in natural_pos, f"\nHAND [{hand.upper()}] IN finger_natural_positions.json FILE IS INVALID!"
+            assert finger in natural_pos[hand]['x'], f"\nFINGER [{finger.upper()}] WITH [{hand.upper()}]:X HAND IN finger_natural_positions.json FILE IS INVALID!"
+            assert finger in natural_pos[hand]['y'], f"\nFINGER [{finger.upper()}] WITH [{hand.upper()}]:Y HAND IN finger_natural_positions.json FILE IS INVALID!"
+
+
             self.finger_natural_pos[ffinger]=Point(natural_pos[hand]['x'][finger],natural_pos[hand]['y'][finger])
 
 
@@ -247,11 +256,24 @@ class Layout:
         self.finger_costs={}
         with open('config/parameters.json','r') as file:
             parameters=json.load(file)
+            assert "finger_costs" in parameters, f"\nPLEASE ENTER FINGER COSTS IN parameters.json FILE FIRST!"
             self.finger_costs=parameters["finger_costs"]
+
+            for finger in self.finger_costs:
+                assert self._validate_finger(finger), f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN parameters.json:FINGER_COSTS FILE IS INVALID!"
 
     def _init_finger_rolls(self):
         self.finger_roll={'pinky':0,'ring':1,'middle':2,'index':3,'thumb':4} #DO NOT TOUCH
         self.hand={'left':0,'right':1} #DO NOT TOUCH
+
+    def _validate_finger(self, finger):
+        hand, finger=finger.split('_')
+
+        if hand not in self.hand or finger not in self.finger_roll:
+            return False
+        return True
+
+
 
     def _init_finger_distances(self): #need init finger roll first
         tfinger_dists={}
@@ -261,6 +283,7 @@ class Layout:
         self.finger_dists={}
         for FF, dist in tfinger_dists.items():
             x, y=FF.split('_')
+            assert x in self.finger_roll and y in self.finger_roll, f"\nFINGER NAMES [{FF.upper()}] IN finger_distances.json FILE ARE INVALID!"
             self.finger_dists[(self.finger_roll[x],self.finger_roll[y])]=dist
             
     

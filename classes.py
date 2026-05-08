@@ -5,6 +5,11 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import math
 
+def distance_sq(pos1, pos2): #special distance
+    x=(pos1.x-pos2.x)*1.25
+    y=pos1.y-pos2.y
+    return x**2+y**2
+
 class Point:
     __slots__ = ['x', 'y']
     def __getstate__(self):
@@ -47,6 +52,55 @@ class Point:
     def copy(self):
         return Point(self.x,self.y)
 
+
+class Vector():
+    def __init__(self, vals):
+        
+        self.vals=vals
+        self.n=len(vals)
+
+    def __sub__(self, other):
+        if self.n!=other.n:
+            return None
+        return Vector([self.vals[i]-other.vals[i] for i in range(self.n)])
+    def __add__(self, other):
+        if self.n!=other.n:
+            return None
+        return Vector([self.vals[i]+other.vals[i] for i in range(self.n)])
+
+    def dist(self, other):
+        if self.n!=other.n:
+            return None
+
+        dist=0
+
+        for i in range(self.n):
+            dist+=(self.vals[i]-other.vals[i])**2
+        return math.sqrt(dist)
+    def dot(self, other):
+        return sum(self.vals[i] * other.vals[i] for i in range(self.n))
+    def __mul__(self, other):
+        if isinstance(other, Vector):
+            return Vector([self.vals[i]*other.vals[i] for i in range(self.n)])
+
+        return Vector([val*other for val in self.vals])
+    def __truediv__(self, other):
+        return Vector([val/other for val in self.vals])
+    def __abs__(self):
+        dist=0
+
+        for i in range(self.n):
+            dist+=self.vals[i]**2
+        return math.sqrt(dist)
+
+    def __repr__(self):
+
+        ans=""
+        for i in range(self.n):
+            ans+=f"{round(self.vals[i],2)} "
+        return ans
+    
+
 class Key:
     def __init__(self, lx, uy, width=1, offset=0):
         self._pos=Point(lx,uy)
@@ -61,16 +115,16 @@ class Layout:
     def __init__(self):
         self._init_layout()
         self._init_keys()
+        self._init_finger()
         self._init_keystrokes()
         self._init_artist()
 
-        self._init_finger_rolls()
         self._init_assigned_keys()
         self._init_home_keys()
         self._init_parameters()
         self._init_finger_distances()
+        self._precompute()
         self._init_visual()
-        # print(self.idx2finger)
 
     def _init_assigned_keys(self):
         self.assigned_keys={}
@@ -78,12 +132,12 @@ class Layout:
             self.assigned_keys=json.load(file)
 
 
-        self.idx2finger=[None]*len(self.key2idx)
+        self.key_idx2finger_idx=[None]*len(self.key2idx)
 
         for finger, keys in self.assigned_keys.items():
             assert self._validate_finger(finger), f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN assigned_fingers.json FILE IS INVALID!"
             for key in keys:
-                self.idx2finger[self.key2idx[key]]=finger
+                self.key_idx2finger_idx[self.key2idx[key]]=self.finger2idx[finger]
 
     def _init_artist(self):
         self.fig, self.ax = plt.subplots()
@@ -127,7 +181,8 @@ class Layout:
         freq[self.keybind2idx['chat']]+=len(self.keystrokes)
         key_count+=len(self.keystrokes)*3
 
-        self.prob=[f/key_count for f in freq]
+        #probability of keys in keystrokes
+        self.key_probs=[f/key_count for f in freq]
 
         
         
@@ -229,27 +284,52 @@ class Layout:
         plt.savefig('output/layout.svg')
 
 
+    def _init_finger(self):
+        self.FINGER_CODE={'pinky':0,'ring':1,'middle':2,'index':3,'thumb':4} #DO NOT TOUCH
+        self.HAND_CODE={'left':0,'right':1} #DO NOT TOUCH
+
+        self.idx2finger=[f"{hand}_{finger}" for hand, hand_idx in sorted(self.HAND_CODE.items(),key=lambda x: x[1]) for finger, finger_idx in sorted(self.FINGER_CODE.items(),key=lambda x: x[1])]
+        self.finger2idx={finger: idx for idx, finger in enumerate(self.idx2finger)}
+
+
+
     def _init_home_keys(self):
         self.home_keys={}
+        self.hand=[[],[]] # Initialize two empty lists for left and right hands
         with open('config/home_keys.json','r') as file: 
             for finger, key in json.load(file).items():
                 assert self._validate_finger(finger), f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN home_keys.json FILE IS INVALID!"
                 assert key in self.keys,  f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN home_keys.json FILE DOESN'T APPEAR IN layout.txt FILE!"
-                self.home_keys[finger]=self.key2idx[key]
-        
+                
+                self.home_keys[self.finger2idx[finger]]=self.key2idx[key]
+
+                hand_code, finger_code=self.get_finger_roll(self.finger2idx[finger])
+
+                if hand_code==self.HAND_CODE['left']:
+                    self.hand[hand_code].append(finger_code)
+                else:
+                    self.hand[hand_code].append(finger_code)
+
+        self.hand[0].sort()
+        self.hand[1].sort()
+
         natural_pos={}
 
         with open('config/finger_natural_positions.json','r') as file:
             natural_pos=json.load(file)
         self.finger_natural_pos={}
-        for ffinger in self.home_keys:
-            hand, finger=ffinger.split("_")
+        for finger_idx in self.home_keys:
+            hand, finger=self.idx2finger[finger_idx].split('_')
             assert hand in natural_pos, f"\nHAND [{hand.upper()}] IN finger_natural_positions.json FILE IS INVALID!"
-            assert finger in natural_pos[hand]['x'], f"\nFINGER [{finger.upper()}] WITH [{hand.upper()}]:X HAND IN finger_natural_positions.json FILE IS INVALID!"
-            assert finger in natural_pos[hand]['y'], f"\nFINGER [{finger.upper()}] WITH [{hand.upper()}]:Y HAND IN finger_natural_positions.json FILE IS INVALID!"
+            assert finger in natural_pos[hand]['x'], f"\nFINGER [{finger.upper()}] DOESNT APPEAR IN [{hand.upper()}]:X HAND IN finger_natural_positions.json FILE!"
+            assert finger in natural_pos[hand]['y'], f"\nFINGER [{finger.upper()}] DOESNT APPEAR IN [{hand.upper()}]:Y HAND IN finger_natural_positions.json FILE!"
+
+            self.finger_natural_pos[finger_idx]=Point(natural_pos[hand]['x'][finger],natural_pos[hand]['y'][finger])
 
 
-            self.finger_natural_pos[ffinger]=Point(natural_pos[hand]['x'][finger],natural_pos[hand]['y'][finger])
+
+        
+
 
 
     def _init_parameters(self):
@@ -261,15 +341,11 @@ class Layout:
 
             for finger in self.finger_costs:
                 assert self._validate_finger(finger), f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN parameters.json:FINGER_COSTS FILE IS INVALID!"
-
-    def _init_finger_rolls(self):
-        self.finger_roll={'pinky':0,'ring':1,'middle':2,'index':3,'thumb':4} #DO NOT TOUCH
-        self.hand={'left':0,'right':1} #DO NOT TOUCH
+        #encode
+        self.finger_costs={self.finger2idx[finger]: cost for finger, cost in self.finger_costs.items()}
 
     def _validate_finger(self, finger):
-        hand, finger=finger.split('_')
-
-        if hand not in self.hand or finger not in self.finger_roll:
+        if finger not in self.finger2idx:
             return False
         return True
 
@@ -280,18 +356,46 @@ class Layout:
         with open("config/finger_distances.json","r") as file:
             tfinger_dists=json.load(file)
 
-        self.finger_dists={}
+        self.finger_dists={} #THIS USE FINGER CODE AND HAND CODE AS INDEX SYSTEM (SAME WITH FINGER_CODE, HAND_CODE) NOT THE FINGER_IDX SYSTEM (SAME WITH finger2idx)
         for FF, dist in tfinger_dists.items():
             x, y=FF.split('_')
-            assert x in self.finger_roll and y in self.finger_roll, f"\nFINGER NAMES [{FF.upper()}] IN finger_distances.json FILE ARE INVALID!"
-            self.finger_dists[(self.finger_roll[x],self.finger_roll[y])]=dist
-            
-    
-    #GETTERS
-    def get_finger_roll(self, finger):
-        hand_n_finger=finger.split('_')
-        return self.hand[hand_n_finger[0]], self.finger_roll[hand_n_finger[1]]
+            assert x in self.FINGER_CODE and y in self.FINGER_CODE, f"\nFINGER NAMES [{FF.upper()}] IN finger_distances.json FILE ARE INVALID!"
+            self.finger_dists[(self.FINGER_CODE[x],self.FINGER_CODE[y])]=dist
+            self.finger_dists[(self.FINGER_CODE[y],self.FINGER_CODE[x])]=dist
 
+    def _precompute(self):
+        self.key_sq_dists=[[distance_sq(self.keys[self.idx2key[i]].fpos,self.keys[self.idx2key[j]].fpos) for i in range(len(self.idx2key))] for j in range(len(self.idx2key))] #SQUARE OF DISTANCE BETWEEN KEYS, USE KEY_IDX AS INDEX SYSTEM
+
+        self.initial_FDC_cache=[{},{}] #cache for FDC calculation, index by hand code, key is (finger_i, finger_j) with finger code as index system, value is the FDC cost between the two fingers
+        self.initial_FDC_total=0
+        from evaluate import FDC_full
+        #finger_tasks only have 1 value for key_idx, not the time and count, since it's only used for initialization
+        #assume 1 finger is pressing chat
+        temp_key=self.home_keys[self.key_idx2finger_idx[self.chat_i]] #store the original key idx for the finger that presses chat
+        self.home_keys[self.key_idx2finger_idx[self.chat_i]]=self.chat_i
+
+
+        for hand_code in [0,1]:
+            self.initial_FDC_total+=FDC_full(self, self.home_keys, self.hand[hand_code], hand_code, self.initial_FDC_cache)
+
+
+        self.home_keys[self.key_idx2finger_idx[self.chat_i]]=temp_key #revert back
+
+        #TODO: precompute FDC factors
+
+
+
+    
+            
+    #GETTERS
+    
+    def get_finger_roll(self, finger_idx): #THIS FUNCTION RETURNS DIFFERENT INDEX SYSTEM (SAME WITH FINGER_CODE, HAND_CODE)
+        hand_code=finger_idx//5
+        finger_code=finger_idx%5
+        return hand_code, finger_code
+
+    def get_finger_idx(self, hand_code, finger_code): #THIS FUNCTION TAKES IN DIFFERENT INDEX SYSTEM (SAME WITH FINGER_CODE, HAND_CODE)
+        return hand_code*5+finger_code
 
     def display(self, potential_remaps:list, scores={}, name='layout'):
         for i in range(len(self.texts)):
@@ -316,8 +420,9 @@ class Layout:
         self.ax.autoscale_view()
         plt.savefig(f'output/{name}.svg')
 
+if __name__=="__main__":
 
-
-# l=Layout()
-# print(l.available_keybinds)
-# print(l.available_keys)
+    l=Layout()
+    print(l.finger2idx)
+    print(l.available_keys)
+    print(l.key_idx2finger_idx)

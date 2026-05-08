@@ -1,9 +1,44 @@
 
 import random
-from vector import Vector
-from classes import Layout
+from classes import Layout, Vector
 import random
-def init(layout:Layout):
+
+'''
+'''
+def distributed_init(layout: Layout):
+
+    indices=[]
+    scores={}
+    for key_idx in layout.available_keys:
+        if key_idx in layout.fixed_keys:
+            continue
+        indices.append(key_idx)
+        finger_idx=layout.key_idx2finger_idx[key_idx]
+        scores[key_idx] = layout.finger_costs[finger_idx]*layout.key_sq_dists[key_idx][layout.home_keys[finger_idx]]
+
+    indices.sort(key=lambda x:scores[x])
+
+    keys=sorted(layout.available_keybinds, key=lambda x: layout.key_probs[x],reverse=True)
+
+
+    for i in range(len(keys)):
+        if random.random()<0.1:
+            swap_idx=random.randint(0,len(keys)-1)
+            keys[i],keys[swap_idx]=keys[swap_idx],keys[i]
+    
+    res=[None]*len(layout.idx2key)
+    for idx,key in zip(indices,keys):
+        res[idx]=key
+    for i,j in layout.fixed_keys.items():
+        if i==layout.key2idx[layout.chat]:
+            continue
+        res[i]=j
+    return res
+
+
+
+
+def random_init(layout:Layout):
     indices=random.sample(layout.available_keys,len(layout.available_keys))
     keys=random.sample(layout.available_keybinds,len(layout.available_keybinds))
 
@@ -16,52 +51,13 @@ def init(layout:Layout):
         res[i]=j
     return res
 
-# l=Layout()
-# print(l.display(init(l)))
-# print(l.home_keys)
+def init(population_size: int, layout: Layout):
+    ind=random_init(layout)
+    return [ind.copy() for _ in range(population_size)]
 
 
-
-def init_weight_vectors(num_divisions, num_objectives):
-
-    ans=[]
-
-    step=1/num_divisions
-    divisions=[i*step for i in range(num_divisions+1)]
-
-    def recursion(i, sum, task):
-        if i>=num_objectives:
-            if abs(sum-1)<=1e-9:
-                ans.append(Vector(task.copy()))
-            
-            return
-        for j in divisions:
-            if sum+j>1+1e-9:
-                return
-            task.append(j)
-            recursion(i+1,sum+j,task)
-            task.pop()
-
-    recursion(0,0,[])
-    return ans
-
-
-def who_am_i_neighbour(current,weights, num_neighbours):
-    neighs=[]
-
-    dists=[]
-    for idx in range(len(weights)):
-        dists.append((weights[current].dist(weights[idx]),idx))
-    dists.sort()
-
-    ans=[dists[i][1] for i in range(num_neighbours)]
-    return ans
-
-
-def init_reference_point(evas, objectives):
-    ans=[float('inf') for obj in objectives]
-
-    for eva in evas:
-        for i in range(len(objectives)):
-            ans[i]=min(ans[i],eva[objectives[i]])
-    return Vector(ans)
+if __name__=='__main__':
+    l=Layout()
+    i=distributed_init(l)
+    print(i)
+    l.display(i)

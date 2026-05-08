@@ -3,6 +3,4 @@
 + columns swap?
 + key sequences swap if they have same length?
 - New crossover algorithm
-- add Partial Reinitialization 
-- add Adaptive Mutation Factor
 - json correction code

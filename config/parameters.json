@@ -12,7 +12,7 @@
         "right_pinky": 2.5,
         "right_thumb": 1.0
     },
-    "generation_limit": 500,
-    "round_limit": 2,
-    "number_of_divisions": 3
+    "generation_limit": 300,
+    "iteration_limit": 100,
+    "population_size": 10
 }

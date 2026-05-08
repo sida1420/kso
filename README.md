@@ -1,5 +1,5 @@
-
-
+> [!WARNING]
+> This branch hasn't finished and executable
 # KSO
 
 A multi-objective optimizer for keyboard keybind layouts using MOEA/D. Optimizes keybind placements.
@@ -71,6 +71,8 @@ The optimizer minimizes five objectives (weights set in `target_metrics.json`):
 | **use_count_cost** | Penalty for overusing individual fingers|
 | **roll_cost** | Rewards smooth inward/outward finger rolls; penalizes redirects and same-finger repetition. |
 | **distance_cost** | Penalty for fingers deviating from their natural relative spacing (e.g., stretch too wide or close). |
+
+You can see detailed formulas [here](https://drive.google.com/file/d/1mRARs6CtTvnGyEntORbX8VoSXQE8rjjj/view?usp=sharing).
 
 Lower scores are better.
 

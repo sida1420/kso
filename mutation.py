@@ -14,6 +14,9 @@ def binary_swap(ind,layout):
         ind[i], ind[j]= ind[j], ind[i]
     return ind
 
+def keystroke_swap(ind,layout):
+     pass
+
 def mutate(ind,layout):
     
     r=random.random()

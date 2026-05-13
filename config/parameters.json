@@ -1,18 +1,20 @@
 {
-    "finger_costs":{
-        "left_index": 1.0,
+    "finger_efforts":{
+        "left_index": 1.1,
         "left_middle": 1.1,
         "left_ring": 1.6,
         "left_pinky": 2.5,
-        "left_thumb": 0.5,
+        "left_thumb": 1,
         
-        "right_index": 1.0,
+        "right_index": 1.1,
         "right_middle": 1.1,
         "right_ring": 1.6,
         "right_pinky": 2.5,
         "right_thumb": 1.0
     },
-    "generation_limit": 300,
+    "shift_layer": true,
+    "generation_limit": 1000,
+    "dev_mode": true,
     "iteration_limit": 100,
     "population_size": 10
 }

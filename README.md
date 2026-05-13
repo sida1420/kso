@@ -21,7 +21,7 @@ pip install matplotlib numpy
 ├── config/                 # Configuration files (JSON + TXT)
 │   ├── assigned_fingers.json
 │   ├── available_keys.txt
-│   ├── finger_distances.json
+│   ├── max_finger_distances.json
 │   ├── finger_natural_positions.json
 │   ├── fixed_keys.json
 │   ├── home_keys.json
@@ -66,11 +66,11 @@ The optimizer minimizes five objectives (weights set in `target_metrics.json`):
 
 | Metric | Description |
 |--------|-------------|
-| **finger_cost** | Penalty for placing frequent keys far from the finger's home position, weighted by finger strength (e.g., pinky = expensive). |
-| **movement_cost** | Cost of moving fingers between keys during a keystroke sequence. |
-| **use_count_cost** | Penalty for overusing individual fingers|
-| **roll_cost** | Rewards smooth inward/outward finger rolls; penalizes redirects and same-finger repetition. |
-| **distance_cost** | Penalty for fingers deviating from their natural relative spacing (e.g., stretch too wide or close). |
+| **finger_strain** | Penalty for placing frequent keys far from the finger's home position, weighted by finger strength (e.g., pinky = expensive). |
+| **travel_distance** | Cost of moving fingers between keys during a keystroke sequence. |
+| **use_count** | Penalty for overusing individual fingers|
+| **bad_roll** | Rewards smooth inward/outward finger rolls; penalizes redirects and same-finger repetition. |
+| **finger_stretch** | Penalty for fingers deviating from their natural relative spacing (e.g., stretch too wide or close). |
 
 You can see detailed formulas [here](https://drive.google.com/file/d/1mRARs6CtTvnGyEntORbX8VoSXQE8rjjj/view?usp=sharing).
 

@@ -1,4 +1,5 @@
 import random
+import numpy as np
 import math
 from classes import *
 import copy
@@ -6,7 +7,16 @@ import copy
 def normalize(ind):
     return ind
 
-def finger_cost(ind, layout):
+REDIRECT_PENALTY_COEFF=4
+INWARD_REWARD_COEFF=3
+OUTWARD_REWARD_COEFF=1
+SAME_FINGER_PENALTY_COEFF=3
+TRAVEL_DISTANCE_COEFF=0.6
+FINGER_STRETCH_COEFF=0.6
+
+stretch_decaying_factor=math.exp(FINGER_STRETCH_COEFF)
+
+def finger_strain(ind, layout):
     res = 0
     for i, j in enumerate(ind):
         if j is None:
@@ -16,20 +26,21 @@ def finger_cost(ind, layout):
         # CPU Optimization: Used distance_sq instead of distance()**2
         
         anchor_dist_sq = layout.key_sq_dists[i][layout.home_keys[finger_idx]]
-        res += layout.finger_costs[finger_idx] * layout.key_probs[j] * anchor_dist_sq
+        res += layout.finger_efforts[finger_idx] * layout.key_probs[j] * anchor_dist_sq
     return res
 
 
-def compute_FMC(finger_cost, sq_dist, time, prev_time):
+def compute_TD(finger_cost, sq_dist, time, prev_time):
+    delta_time = time - prev_time+1
     return (
         finger_cost
         *sq_dist
-        /(time-prev_time+1)**1.5
+        /math.exp(delta_time*TRAVEL_DISTANCE_COEFF) #fine-tune
     )
 
 
 #finger distance(prefer low distanece, original natural distane)
-def compute_FDC(key_i_pos, key_j_pos, natural_i, natural_j, finger_dist, finger_cost_i, finger_cost_j):
+def compute_FS(key_i_pos, key_j_pos, natural_i, natural_j, finger_dist, finger_cost_i, finger_cost_j):
     return (
         (   
             ((key_i_pos.y-key_j_pos.y)-(natural_i.y-natural_j.y))**2
@@ -41,7 +52,7 @@ def compute_FDC(key_i_pos, key_j_pos, natural_i, natural_j, finger_dist, finger_
     )
 
 
-def FDC_full(layout, finger_tasks, order, hand_code, cache): #finger_tasks only have 1 value for key_idx, not the time and count, since it's only used for initialization
+def FS_full(layout, finger_tasks, order, hand_code, cache): #finger_tasks only have 1 value for key_idx, not the time and count, since it's only used for initialization
     res=0
     for finger_i in order: #THIS USE FINGER CODE AND HAND CODE AS INDEX SYSTEM (SAME WITH FINGER_CODE, HAND_CODE) NOT THE FINGER_IDX SYSTEM (SAME WITH finger2idx)
         finger_idx_i=layout.get_finger_idx(hand_code, finger_i) #REVERT BACK TO FINGER_IDX SYSTEM FOR FINGER COST
@@ -53,53 +64,53 @@ def FDC_full(layout, finger_tasks, order, hand_code, cache): #finger_tasks only 
             finger_idx_j=layout.get_finger_idx(hand_code, finger_j) #REVERT
             key_j=layout.idx2key[finger_tasks[finger_idx_j]]
             natural_j=layout.finger_natural_pos[finger_idx_j]
-            cost=compute_FDC(
+            cost=compute_FS(
                 layout.keys[key_i].fpos,
                 layout.keys[key_j].fpos,
                 natural_i,
                 natural_j,
                 layout.finger_dists[(finger_i,finger_j)], #FINGER DISTANCE USE FINGER CODE AS INDEX SYSTEM
-                layout.finger_costs[finger_idx_i],
-                layout.finger_costs[finger_idx_j]
+                layout.finger_efforts[finger_idx_i],
+                layout.finger_efforts[finger_idx_j]
             )
             cache[hand_code][(finger_i,finger_j)]=cost
 
             res+=cost
     return res
 
-def FDC_partial(layout, finger_tasks, finger_i, finger_idx_i, order, hand_code, old_res, cache):
-    key_i=layout.idx2key[finger_tasks[finger_idx_i][0]]
+def FS_partial(layout, finger_tasks, key_idx, finger_i, finger_idx_i, time, order, hand_code, old_res, cache): #finger task still stores old key
+    key_i=layout.idx2key[key_idx] #key str
     natural_i=layout.finger_natural_pos[finger_idx_i]
     res=old_res
     for finger_j in order:
         if finger_i==finger_j:
             continue
         finger_idx_j=layout.get_finger_idx(hand_code, finger_j) #REVERT
-        key_j=layout.idx2key[finger_tasks[finger_idx_j][0]]
+        key_j=layout.idx2key[finger_tasks[finger_idx_j][0]] #key str
         natural_j=layout.finger_natural_pos[finger_idx_j]
         
         order_pair=(min(finger_i,finger_j),max(finger_i,finger_j))
 
-        res-=cache[hand_code][order_pair]
-        cost=compute_FDC(
+        res-=cache[hand_code][order_pair]*stretch_decaying_factor**(finger_tasks[finger_idx_i][1]+finger_tasks[finger_idx_j][1])
+        cost=compute_FS(
             layout.keys[key_i].fpos,
             layout.keys[key_j].fpos,
             natural_i,
             natural_j,
             layout.finger_dists[(finger_i,finger_j)],
-            layout.finger_costs[finger_idx_i],
-            layout.finger_costs[finger_idx_j]
+            layout.finger_efforts[finger_idx_i],
+            layout.finger_efforts[finger_idx_j],
         )
         cache[hand_code][order_pair]=cost
-        res+=cost
+        res+=cost* stretch_decaying_factor**(time+ finger_tasks[finger_idx_j][1])
     return res
 
 
 def sequence_costs(ind, layout:Layout):
-    finger_movement_cost=0
+    travel_distance_cost=0
     roll_cost=0
     use_count_cost=0
-    finger_dist_cost=0
+    finger_stretch_cost=0
 
     keybind_idx2key_idx={j:i for i,j in enumerate(ind) if j is not None}
 
@@ -110,12 +121,12 @@ def sequence_costs(ind, layout:Layout):
         keystroke=keystroke_n_weight[0]
         weight=keystroke_n_weight[1]
         #finger: [key_idx, last_used, use_count]
-        finger_tasks={finger_idx:[key_idx,-1,0] for finger_idx, key_idx in layout.home_keys.items()}
+        finger_tasks={finger_idx:[key_idx,0,0] for finger_idx, key_idx in layout.home_keys.items()}
         
         #assume 1 finger is pressing chat
         finger_tasks[layout.key_idx2finger_idx[layout.chat_i]][0]=layout.chat_i
 
-        local_finger_movement_cost=0 #base cost
+        local_travel_distance=0 #base cost
         local_roll_cost=0
 
         #inititize for roll
@@ -123,11 +134,12 @@ def sequence_costs(ind, layout:Layout):
         consecutive_roll=0
         prev_hand_code, prev_finger_code=layout.get_finger_roll(layout.key_idx2finger_idx[layout.chat_i])
 
-        FDC_cache=copy.deepcopy(layout.initial_FDC_cache) #cache for FDC calculation, index by hand code, key is (finger_i, finger_j) with finger code as index system, value is the FDC cost between the two fingers
-        current_FDC_total=layout.initial_FDC_total
-        local_finger_dist_cost=0  # accumulate over time
+        FS_cache=copy.deepcopy(layout.initial_FS_cache) #cache for FS calculation, index by hand code, key is (finger_i, finger_j) with finger code as index system, value is the FS cost between the two fingers
+        current_FS_total=layout.initial_FS_total
+        local_finger_stretch=0  # accumulate over time
 
-        for time, keybind_idx in enumerate(keystroke):
+        for i, keybind_idx in enumerate(keystroke):
+            time=i+1
             key_idx=keybind_idx2key_idx[keybind_idx]
             press_finger=layout.key_idx2finger_idx[key_idx]
             #increase use_count
@@ -137,8 +149,8 @@ def sequence_costs(ind, layout:Layout):
             prev_time=finger_tasks[press_finger][1]
             #finger_cost*distance**2/(moving_time+press_time)**1.5
             #TODO: fine-tuning
-            local_finger_movement_cost+=compute_FMC(
-                layout.finger_costs[press_finger],
+            local_travel_distance+=compute_TD(
+                layout.finger_efforts[press_finger],
                 layout.key_sq_dists[key_idx][prev_key_idx],
                 time,
                 prev_time
@@ -163,16 +175,17 @@ def sequence_costs(ind, layout:Layout):
 
 
                 if current_dir!=roll_state and roll_state!=-1: #redirect
-                    local_roll_cost += layout.finger_costs[press_finger] * 2
-                    consecutive_roll = 1
+                    local_roll_cost += REDIRECT_PENALTY_COEFF*layout.finger_efforts[press_finger]
+                    consecutive_roll = 0
                 else:
                     consecutive_roll+=1
                     if current_dir==2:
-                        local_roll_cost -= consecutive_roll*2/layout.finger_costs[press_finger]
+                        local_roll_cost -= INWARD_REWARD_COEFF*consecutive_roll/layout.finger_efforts[press_finger]
                     elif current_dir==1:
-                        local_roll_cost -= consecutive_roll/layout.finger_costs[press_finger]
+                        local_roll_cost -= OUTWARD_REWARD_COEFF*consecutive_roll/layout.finger_efforts[press_finger]
+                        # pass
                     elif current_dir==0:
-                        local_roll_cost += layout.finger_costs[press_finger]*consecutive_roll*2
+                        local_roll_cost += SAME_FINGER_PENALTY_COEFF*layout.finger_efforts[press_finger]*consecutive_roll*2
 
                 
                 roll_state=current_dir
@@ -180,16 +193,17 @@ def sequence_costs(ind, layout:Layout):
             prev_finger_code=finger_code
 
 
+            #GLOBAL DECAYING
+
+            current_FS_total=(
+                FS_partial(layout,finger_tasks, key_idx, finger_code, press_finger, time, layout.hand[hand_code], hand_code, current_FS_total, FS_cache)
+            )
+            local_finger_stretch += current_FS_total/(stretch_decaying_factor**(2*time))
 
             #update
             finger_tasks[press_finger][0]=key_idx            
             finger_tasks[press_finger][1]=time
 
-            
-            current_FDC_total=(
-                FDC_partial(layout,finger_tasks, finger_code, press_finger, layout.hand[hand_code], hand_code, current_FDC_total, FDC_cache)
-            )
-            local_finger_dist_cost += current_FDC_total
 
 
         #cost of moving all finger back to home row
@@ -202,8 +216,8 @@ def sequence_costs(ind, layout:Layout):
             key_idx=layout.home_keys[finger]
             if prev_key_idx==key_idx:
                 continue
-            local_finger_movement_cost+=compute_FMC(
-                layout.finger_costs[finger],
+            local_travel_distance+=compute_TD(
+                layout.finger_efforts[finger],
                 layout.key_sq_dists[key_idx][prev_key_idx],
                 time,
                 prev_time
@@ -216,15 +230,46 @@ def sequence_costs(ind, layout:Layout):
             #count*fingercost
             local_use_count_cost+=(
                 key_idx_n_time_n_count[2]**2
-                *layout.finger_costs[finger]
+                *layout.finger_efforts[finger]
             )
         
 
         use_count_cost+=local_use_count_cost*weight
-        finger_movement_cost+=local_finger_movement_cost*weight
+        travel_distance_cost+=local_travel_distance*weight
         roll_cost+=local_roll_cost*weight
-        finger_dist_cost+=local_finger_dist_cost*weight
-    return finger_movement_cost, use_count_cost, roll_cost, finger_dist_cost
+        finger_stretch_cost+=local_finger_stretch*weight
+    return travel_distance_cost, use_count_cost, roll_cost, finger_stretch_cost
+
+# def weighted_sum(evaluation, target_metrics):
+#     score=0
+#     for metric, weight in target_metrics.items():
+#         score+=evaluation[metric]*weight
+#     return score
+
+def evaluate(population, layout):
+
+    evas=[]
+    for i in range(len(population)):
+        travel_distance_cost, use_count_cost, roll_cost, finger_stretch_cost=sequence_costs(population[i],layout)
+        eva={
+            "finger_strain":finger_strain(population[i],layout),
+            "travel_distance":travel_distance_cost,
+            "use_count":use_count_cost,
+            "bad_roll": roll_cost,
+            "finger_stretch": finger_stretch_cost
+            }
+        evas.append(eva)
+
+    return evas
+
+def vector_evas(population:list, layout: Layout):
+
+    res=evaluate(population, layout)
+
+    return [np.array(list(eva.values())) for eva in res]
+
+# target=[Point(0,0.5),Point(0.5,0.5),Point(0.6,0.5),Point(1,0.5)]
+# print(evaluate([[1,0,0,0,0,0,0,0,0,0],],target))
 
 
 if __name__ == '__main__':
@@ -235,22 +280,21 @@ if __name__ == '__main__':
     print(sequence_costs(i,l))
 
 
-def evaluate(population, layout):
 
-    evas=[]
-    for i in range(len(population)):
-        finger_movement_cost, use_count_cost, roll_cost, finger_dist_cost=sequence_costs(population[i],layout)
-        eva={
-            "finger_cost":finger_cost(population[i],layout),
-            "movement_cost":finger_movement_cost,
-            "use_count_cost":use_count_cost,
-            "roll_cost": roll_cost,
-            "distance_cost": finger_dist_cost
-            }
-        evas.append(eva)
+def apply_scale(evaluation, mins, maxs):
+    return (evaluation-np.array(mins))/(np.array(maxs)-np.array(mins))
 
-    return evas
+def weighted_sum_scaled(scaled_eval: np.ndarray, target_vector: np.ndarray):
+    return np.sum(scaled_eval*target_vector)
 
-# target=[Point(0,0.5),Point(0.5,0.5),Point(0.6,0.5),Point(1,0.5)]
-# print(evaluate([[1,0,0,0,0,0,0,0,0,0],],target))
-
+def update_global(global_extreme, evas, mode='min'):
+    range_changed=False
+    for e in evas:
+        for i,v in enumerate(e):
+            if mode == 'min' and v < global_extreme[i]:
+                global_extreme[i] = v
+                range_changed=True
+            elif mode == 'max' and v > global_extreme[i]:
+                global_extreme[i] = v
+                range_changed=True
+    return range_changed

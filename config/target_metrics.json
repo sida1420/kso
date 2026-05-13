@@ -1,7 +1,7 @@
 {
-    "finger_cost": 10,
-    "movement_cost": 15,
-    "use_count_cost": 20,
-    "roll_cost": 15,
-    "distance_cost": 10
+    "finger_strain": 17,
+    "travel_distance": 12,
+    "use_count": 15,
+    "bad_roll": 30,
+    "finger_stretch": 11
 }

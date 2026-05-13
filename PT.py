@@ -3,88 +3,137 @@
 import heapq
 import init
 import selection
-from classes import *
+import classes
 import evaluate
-import json
 import random
 import numpy as np
+import mutation
+import heapq
 
-DEFAULT_GENERATION_LIMIT = 500
-DEFAULT_ITERATION_LIMIT = 100
-DEFAULT_POPULATION_SIZE = 10
+
 
 
 def run():
-    target_metrics={}
-    with open('config/target_metrics.json') as file:
-        target_metrics=json.load(file)
+    paras=init.Parameters()
 
+    objectives=list(paras.target_metrics.keys())
 
-
-
-    with open('config/parameters.json') as file:
-        paras=json.load(file)
-    if "generation_limit" in paras:
-        generation_limit=paras["generation_limit"]
-    else:
-        generation_limit=DEFAULT_GENERATION_LIMIT
-    if "iteration_limit" in paras:
-        iter_limit=paras["iteration_limit"]
-    else:
-        iter_limit=DEFAULT_ITERATION_LIMIT
-    if "population_size" in paras:
-        population_size=paras["population_size"]
-    else:
-        population_size=DEFAULT_POPULATION_SIZE
-
-    objectives=list(target_metrics.keys())
     #hyper parameters
-    
+    min_T=0.015
+    max_T=0.7
+    n_swaps=11 #Always odd
 
-
-    
     #Initilize
-    layout=Layout()
+    layout=classes.Layout()
+
+    if paras.population_size<1:
+        return
+
+    temperatures=init.init_temperature(paras.population_size, min_T, max_T)
+
+    replicas=init.init(paras.population_size, layout)
+
+    weight_vectors=init.init_weight_vectors(paras.target_metrics,paras.population_size, 15)
 
 
-    population=[init.init(layout) for _ in range(population_size)]
+    evaluations=evaluate.vector_evas(replicas, layout)
+
+
+    dynamic_min = [min(e[i] for e in evaluations) for i in range(len(objectives))]
+    dynamic_max = [max(e[i] for e in evaluations) for i in range(len(objectives))]
+
+    scaled_evals = [evaluate.apply_scale(e, dynamic_min, dynamic_max) for e in evaluations]
+
+    scores=[evaluate.weighted_sum_scaled(scaled_evals[i], weight_vectors[i]) for i in range(paras.population_size)]
+
+    elites=[(scores[0],evaluations[0],replicas[0]),]
+    num_elites=5
+
+    # Static ranges from initial population (never change again)
 
 
 
+    total_jump_accept=np.zeros(paras.population_size)
+    total_swap_accept=np.zeros(paras.population_size-1)
+    total_better_jumps=np.zeros(paras.population_size)
+
+    range_changed=False
+
+    generation_count=0
+    log_range=1
+    while generation_count<paras.generation_limit:
+        generation_count+=1
+        if generation_count%log_range==0 or paras.dev_mode==True:
+            if generation_count>=log_range*10:
+                log_range*=10
+            print(f"\tGENERATION {generation_count}")
+        
+
+        #Canditates for new replicas generation
+        candidates=[]
+        for i in range(paras.population_size):
+            if i<paras.population_size-1 and random.random()<0.05:
+                candidates.append(mutation.cycle_crossover(replicas[i], replicas[i+1]))
+            else:
+                candidates.append(mutation.mutate(replicas[i],layout))
+
+        candidate_evaluations=evaluate.vector_evas(candidates, layout)
 
 
-    bounds = {}
-    for obj in objectives:
-        vals = [ind[obj] for ind in EP_eva]
-        bounds[obj] = {'min': min(vals), 'max': max(vals)}
+        range_changed=evaluate.update_global(dynamic_min, candidate_evaluations, 'min')
+        range_changed=evaluate.update_global(dynamic_max, candidate_evaluations, 'max') or range_changed
 
-    def get_normed_val(val, obj_bounds):
-        denom = obj_bounds['max'] - obj_bounds['min']
-        return (val - obj_bounds['min']) / denom if denom != 0 else 0
 
-    # 2. Calculate a "Preference Score" for each individual
-    # User input (e.g., {'cost': 1, 'speed': 5}) acts as the 'weights'
-    scores = []
-    for ind_eva in EP_eva:
-        current_score = 0
-        for obj in objectives:
-            norm_val = get_normed_val(ind_eva[obj], bounds[obj])
+        scaled_candidate_evals = [evaluate.apply_scale(e, dynamic_min, dynamic_max) for e in candidate_evaluations]
+        candidate_scores=[evaluate.weighted_sum_scaled(scaled_candidate_evals[i], weight_vectors[i]) for i in range(paras.population_size)]
+        if range_changed:
+            scaled_evals = [evaluate.apply_scale(e, dynamic_min, dynamic_max) for e in evaluations]
+            scores=[evaluate.weighted_sum_scaled(scaled_evals[i], weight_vectors[i]) for i in range(paras.population_size)]
+            scaled_elite_evals = [evaluate.apply_scale(e, dynamic_min, dynamic_max) for _,e,_ in elites]
+            elites=[(evaluate.weighted_sum_scaled(scaled_elite_evals[i],weight_vectors[0]),elites[i][1], elites[i][2]) for i in range(len(elites))]
 
-            # Multiply the normalized value by the user's relative importance
-            # If the goal is MINIMIZATION, lower score is better.
-            current_score += target_metrics[obj] * norm_val
+        range_changed=False
 
-        scores.append(current_score)
+        replicas, evaluations, scores, elites, jump_accept, better_jumps = selection.selection(temperatures, replicas, evaluations, scores, candidates, candidate_evaluations, candidate_scores, elites, num_elites, paras.population_size,generation_count)
+
+        if generation_count % n_swaps == 0:
+            replicas, evaluations, scores, swap_accept = mutation.swap_replicas(temperatures, replicas, evaluations, scores, generation_count)
+            total_swap_accept += swap_accept
+            if paras.dev_mode==True:
+                print(f"SWAP ACCEPTED: {swap_accept}")
+
+        total_jump_accept += jump_accept
+        total_better_jumps += better_jumps
+
+        if paras.dev_mode==True:
+            print(f"JUMP ACCEPTED: {jump_accept}")
+            print(f"IDEA POINT: {[round(float(v),2) for v in dynamic_min]}")
+        if generation_count%log_range==0    or paras.dev_mode==True:
+            print(f"BEST SCORE: {round(min(elites, key=lambda e: e[0])[0],3)}")
+
     print('-\t'*10)
-    # 3. Find the individual with the best (lowest) score
-    min_indices = heapq.nsmallest(5, range(len(scores)),key=lambda idx: scores[idx])
-    print("\t\tFINISHED!")
-    print(f"5 LOWEST DISTANCES: {[round(scores[idx],2) for idx in min_indices]}")
-    # print(EP[min_indices[0]])
-    # print(EP_eva[min_indices[0]])
-    for i,idx in enumerate(min_indices):
-        layout.display(EP[idx],EP_eva[idx],name=f'top_{i+1}')
+    print("\tFINISHED!")
+
+    if paras.dev_mode==True:
+        for i, replica in enumerate(replicas):
+            layout.display(replica, zip(objectives,evaluations[i]), name=f'replica_{i}')
+    
+    objective_str=""
+    for obj in objectives:
+        objective_str+=f"{obj}\t"
+    print(f"\tSCORE\t{objective_str}")
+    for i,elite in enumerate(sorted(elites,key=lambda e: e[0])):
+        score_str=""
+        for v in elite[1]:
+            score_str+=f"{round(v,3)}\t\t"
+        print(f"RANK {i+1}:\t{round(elite[0],3)}\t{score_str}\n")
+        layout.display(elite[2], zip(objectives,elite[1]), name=f'top_{i+1}')
+
+    if paras.dev_mode==True:
+        print(f"SWAP ACCEPTANCE RATE:  {total_swap_accept/paras.generation_limit*n_swaps/2}")
+        print(f"JUMP ACCEPTANCE RATE:  {total_jump_accept/(paras.generation_limit-total_better_jumps)}")
+        print(f"BETTER JUMPS RATE:  {total_better_jumps/paras.generation_limit}")
 
 
-
-
+if __name__ == '__main__':
+    run()

@@ -20,7 +20,7 @@
     "weight": 5
   },
   "bed_n_anchor": {
-    "keys": ["i", "ư", "bspc", "i", "n"],
+    "keys": ["i", "ư", "bspc", "n"],
     "weight": 10
   },
   "stick": {

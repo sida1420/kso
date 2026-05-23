@@ -19,8 +19,8 @@ def run():
     objectives=list(paras.target_metrics.keys())
 
     #hyper parameters
-    min_T=0.015
-    max_T=0.7
+    min_T=0.005
+    max_T=0.07
     n_swaps=11 #Always odd
 
     #Initilize
@@ -33,7 +33,7 @@ def run():
 
     replicas=init.init(paras.population_size, layout)
 
-    weight_vectors=init.init_weight_vectors(paras.target_metrics,paras.population_size, 15)
+    weight_vectors=init.init_weight_vectors(paras.target_metrics,paras.population_size, 50)
 
 
     evaluations=evaluate.vector_evas(replicas, layout)
@@ -72,10 +72,10 @@ def run():
         #Canditates for new replicas generation
         candidates=[]
         for i in range(paras.population_size):
-            if i<paras.population_size-1 and random.random()<0.05:
-                candidates.append(mutation.cycle_crossover(replicas[i], replicas[i+1]))
-            else:
-                candidates.append(mutation.mutate(replicas[i],layout))
+            # if i<paras.population_size-1 and random.random()<0.05:
+            #     candidates.append(mutation.cycle_crossover(replicas[i], replicas[i+1]))
+            # else:
+            candidates.append(mutation.mutate(replicas[i],layout, temperatures[i]))
 
         candidate_evaluations=evaluate.vector_evas(candidates, layout)
 

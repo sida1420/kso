@@ -1,6 +1,6 @@
 {
     "spc":"spc",
-    "mback": "bspc",
     "lsft":"lsft",
+    "mback":"bspc",
     "t":["chat"]
 }

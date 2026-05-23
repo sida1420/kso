@@ -1,11 +1,12 @@
-- New mutation algorithm
+- New mutation algorithm - hard
 + rows swap?
 + columns swap?
 + key sequences swap if they have same length?
-- New crossover algorithm
+- New crossover algorithm - seem impossible
 - json correction code
-
 home
 praser
-normalize
+normalize - partily done
 cache idea point
+
+evaluation decaying works for shift holding

@@ -447,10 +447,11 @@ class Layout:
         encoded_fixed_keys={}
         for keyIdx, remap in self.fixed_keys.items():
             if remap in self.keybind2idx:
-                self.fixed_keys[keyIdx]=self.keybind2idx[remap]
+                encoded_fixed_keys[keyIdx]=self.keybind2idx[remap]
             else:
-                raise ValueError(f"KEYBIND {remap} IN fixed_keys.json FILE IS UNUSED!")
-                # print("WARNING: Keybind {remap} in fixed_keys.json file is unused, skipping it")
+                pass
+                # raise ValueError(f"KEYBIND {remap} IN fixed_keys.json FILE IS UNUSED!")
+                print(f"WARNING: Keybind {remap} in fixed_keys.json file is unused, skipping it")
         self.fixed_keys=encoded_fixed_keys
         # self.fixed_keys={keyIdx:(self.keybind2idx[remap] if remap in self.keybind2idx else remap) for keyIdx, remap in self.fixed_keys.items()}
 
@@ -531,14 +532,18 @@ class Layout:
                     self._validate_finger(finger,file_name)
                     self._does_key_exist(key, self.keys, file_name, 'layout.txt')
 
+                    found=False
                     for i,layer in enumerate(self.key2idx):
                         if key not in layer:
                             continue
                         self.home_keys[self.finger2idx[finger]]=self.key2idx[i][key]
+                        found=True
 
-                    hand_code, finger_code=self.get_finger_roll(self.finger2idx[finger])
-
-                    self.hand[hand_code].append(finger_code)
+                    if found:
+                        hand_code, finger_code=self.get_finger_roll(self.finger2idx[finger])
+                        self.hand[hand_code].append(finger_code)
+                    else:
+                        print(f"WARNING: Home key [{key}] for finger [{finger}] is not active (not in fixed/available keys), skipping finger.")
         except json.JSONDecodeError as e:
             print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
             raise SystemExit

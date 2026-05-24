@@ -8,7 +8,7 @@
     "weight": 6
   },
   "tripwire_n_crossbow": {
-    "keys": ["ó", "bspc", "n", "ỏ"],
+    "keys": ["ó", "n", "ỏ"],
     "weight": 1
   },
   "glowstone": {
@@ -20,7 +20,7 @@
     "weight": 5
   },
   "bed_n_anchor": {
-    "keys": ["i", "ư", "bspc", "n"],
+    "keys": ["i", "ư", "n"],
     "weight": 10
   },
   "stick": {
@@ -32,7 +32,7 @@
     "weight": 5
   },
   "blaze_powder_n_ender_eye": {
-    "keys": ["spc", "q", "bspc", "e"],
+    "keys": ["spc", "q", "e"],
     "weight": 5
   },
   "iron_ingot_n_iron_axe": {

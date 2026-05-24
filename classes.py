@@ -444,9 +444,14 @@ class Layout:
 
         #encode fixed keys into keybind indices (if it is in self.keybinds) 
         #keyIdx: keybind --> keyIdx: keybindIdx
-        
-
-        self.fixed_keys={keyIdx:(self.keybind2idx[remap] if remap in self.keybind2idx else remap) for keyIdx, remap in self.fixed_keys.items()}
+        encoded_fixed_keys={}
+        for keyIdx, remap in self.fixed_keys.items():
+            if remap in self.keybind2idx:
+                self.fixed_keys[keyIdx]=self.keybind2idx[remap]
+            else:
+                print("WARNING: Keybind {remap} in fixed_keys.json file is unused, skipping it")
+        self.fixed_keys=encoded_fixed_keys
+        # self.fixed_keys={keyIdx:(self.keybind2idx[remap] if remap in self.keybind2idx else remap) for keyIdx, remap in self.fixed_keys.items()}
 
 
     def _init_assigned_keys(self):

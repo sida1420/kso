@@ -21,9 +21,11 @@ pip install matplotlib numpy
 ├── config/                 # Configuration files (JSON + TXT)
 │   ├── assigned_fingers.json
 │   ├── available_keys.txt
+│   ├── available_shift_keys.txt
 │   ├── max_finger_distances.json
 │   ├── finger_natural_positions.json
 │   ├── fixed_keys.json
+│   ├── fixed_shift_keys.json
 │   ├── home_keys.json
 │   ├── key_widths.json
 │   ├── keystrokes.json     # Your key combinations here
@@ -89,11 +91,13 @@ Most of your configuration is here! For each item or combo of items, make this f
 {
   "<name>":{
     "keys": [<key sequence>],
-    "weight": <weight>  #How important is it, default is 1
+    "weight": <weight>  #How important is it, default is average
+    "shift_safe": <true/false> #only use in base layer, doesn't allow another key in shift layer
   },
   "<name_2>":{
     "keys": [<key_sequence_2>],
     "weight": <weight_2>
+    "shift_safe": <true/false>
 }
 ```
 Example:
@@ -101,7 +105,8 @@ Example:
 {
   "iron_ingot_n_iron_axe": {
     "keys": ["ô", "i", "lsft", "home", "+", "8"],
-    "weight": 4
+    "weight": 4,
+    "shift_safe": true
   }
 }
 ```

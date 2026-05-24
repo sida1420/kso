@@ -1,5 +1,5 @@
 > [!WARNING]
-> This branch hasn't finished and executable
+> We still in beta btw
 # KSO
 
 A multi-objective optimizer for keyboard keybind layouts using MOEA/D. Optimizes keybind placements.

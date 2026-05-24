@@ -37,7 +37,9 @@ class Point:
     def __eq__(self,other):
         return self.x==other.x and self.y==other.y
     def dist(self,other):
-        return math.sqrt((self.x-other.x)**2+(self.y-other.y)**2)
+        return math.sqrt(self.sq_dist(other))
+    def sq_dist(self, other):
+        return (self.x-other.x)**2+(self.y-other.y)**2
     def cross(self, other):
         return self.x*other.y-self.y*other.x
 
@@ -373,13 +375,21 @@ class Layout:
         #special keys
 
         self.special_keybinds=[]
-        #special set
+        self.available_skb=[]
+        self.no_shift_variance_skb_set=set()
+        self.special_keybinds.append(self.home_kbi)
         if self.home_i is None:
-            self.special_keybinds.append(self.home_kbi)
+            self.available_skb.append(self.home_kbi)
         for k in self.specials:
-            if self.specials[k][0] is not None and self.specials[k][2] is not None:
-                self.special_keybinds.append(self.specials[k][2])
+            if self.specials[k][2] is not None:
+                kb=self.specials[k][2]
+                self.special_keybinds.append(kb)
+                self.no_shift_variance_skb_set.add(kb)
+                if self.specials[k][0] is None:
+                    self.available_skb.append(kb)
+        #special set
         self.special_kb_set=set(self.special_keybinds)
+        self.avilable_skb_set=set(self.available_skb)
         # raise ValueError()
 
 
@@ -592,21 +602,6 @@ class Layout:
         self.cum_avai_strain_heapmap=tuple(self.cum_avai_strain_heapmap)
 
 
-        #group keys for cycle crossover
-        self.grouped_indices=[]
-        used=set()
-        for idx, key in enumerate(self.idx2key):
-            if idx in used:
-                continue
-            if idx<self.sizes[0]:
-                t_idx=self.counterparts[idx]
-                if t_idx is None:
-                    self.grouped_indices.append((idx,))
-                else:
-                    self.grouped_indices.append((idx,t_idx))
-                    used.add(t_idx)
-            else:
-                self.grouped_indices.append((idx,))
 
         #TODO: precompute FS factors
 

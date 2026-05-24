@@ -8,24 +8,28 @@ def normalize_keystrokes(ind: list, layout: Layout):
     shift_s=set(ind[i] for i in range(layout.sizes[0],layout.sizes[0]+layout.sizes[1]))
     nkeystrokes=[]
     shift_w=0
+    
     for keystroke, weight in layout.keystrokes:
         shift=False
         nkeystroke=[]
         shift_durations=[]
         last_duration=0
+        shift_intended=False
         for i,kb_idx in enumerate(keystroke):
             if kb_idx==layout.shift_kbi:
                 if shift:
                     continue
                 shift_w+=weight
                 shift=True
-            elif kb_idx in shift_s:
+                shift_intended=True
+            elif kb_idx in shift_s or shift_intended:
                 if not shift:
                     nkeystroke.append(layout.shift_kbi)
                     shift_durations.append(1)
                     last_duration=1
                     shift_w+=weight
                     shift=True
+                shift_intended=False
             elif not(shift and kb_idx in layout.special_kb_set and i<len(keystroke)-1 and (keystroke[i+1] in shift_s or keystroke[i+1]==layout.shift_kbi)):
                 if shift:
                     nkeystroke.append(layout.shift_kbi) #if you are shifting are seeing shift, which mean come back to base layer

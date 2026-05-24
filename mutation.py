@@ -12,7 +12,7 @@ def binary_swap(ind, layout: Layout,threshold, max_attempts=10):
     new_ind = ind[:]
 
     fixed_keys = layout.fixed_keys
-    special_set = layout.special_kb_set
+    special_set = layout.avilable_skb_set
     base_end = layout.sizes[0]
 
     # Only permanently invalid positions are fixed keys.
@@ -88,7 +88,7 @@ def binary_swap(ind, layout: Layout,threshold, max_attempts=10):
 
 def layer_swap(ind: list, layout: Layout,threshold: float):
     new_ind=ind[:]
-    special_s=layout.special_kb_set
+    special_s=layout.avilable_skb_set
     for i in range(layout.sizes[0]):
         cp=layout.counterparts[i]
         if random.random()>threshold or i in layout.fixed_keys or cp is None or cp in layout.fixed_keys or new_ind[i] in special_s:
@@ -142,61 +142,6 @@ def swap_replicas(temperatures, replicas, evaluations, scores, generation_count)
     
     return replicas, evaluations, scores, accept_count
 
-#I CAN'T FIX THIS!!!!!!!!!
-from collections import defaultdict
-def cycle_crossover(p1,p2):
-    size=len(p1)
-    child=[-1]*size
-
-    left_most=0
-    
-    p1_lookup=defaultdict(list)
-
-    for i, j in enumerate(p1):
-        p1_lookup[j].append(i)
-
-    val_count=defaultdict(int)
-
-    idx_map = [0]* size
-    for i,j in enumerate(p2):
-        occurrence=val_count[j]
-
-        idx_map[i]=p1_lookup[j][occurrence]
-        val_count[j]+=1
-
-    use_p1=True
-    while left_most<size:
-        if child[left_most]==-1:
-            cur=left_most
-            
-            while True:
-                child[cur]=p1[cur] if use_p1 else p2[cur]
-                cur=idx_map[cur]
-                if cur==left_most:
-                    break
-            use_p1=not use_p1
-
-
-        left_most+=1
-    return child
-
-def group_cycle_crossover(p1: list, p2: list, layout: Layout) -> list:
-
-    g1 = [tuple(p1[b] for b in g) for g in layout.grouped_indices]
-    g2 = [tuple(p2[b] for b in g) for g in layout.grouped_indices]
-    
-
-    grouped_child=cycle_crossover(g1,g2)
-
-    #ungroup
-
-    child=[None]*len(p1)
-
-    for indices,kb_indices in zip(layout.grouped_indices,grouped_child):
-        for idx, kb_idx in zip(indices,kb_indices):
-            child[idx]=kb_idx
-
-    return child
 
 
 

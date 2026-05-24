@@ -9,7 +9,7 @@ import random
 import numpy as np
 import mutation
 import heapq
-
+import crossover
 
 
 
@@ -19,12 +19,13 @@ def run():
     objectives=list(paras.target_metrics.keys())
 
     #hyper parameters
-    min_T=0.005
+    min_T=0.003
     max_T=0.07
     n_swaps=11 #Always odd
 
     #Initilize
     layout=classes.Layout()
+    decoder=crossover.RKPosDecoder(layout)
 
     if paras.population_size<1:
         return
@@ -72,10 +73,12 @@ def run():
         #Canditates for new replicas generation
         candidates=[]
         for i in range(paras.population_size):
-            # if i<paras.population_size-1 and random.random()<0.05:
-            #     candidates.append(mutation.cycle_crossover(replicas[i], replicas[i+1]))
-            # else:
-            candidates.append(mutation.mutate(replicas[i],layout, temperatures[i]))
+            if i<paras.population_size-1 and random.random()<0.05:
+                p1=replicas[i]
+                p2=replicas[i+1]
+                candidates.append(decoder.decode(crossover.uniform_crossover_3d(decoder.encode(p1),decoder.encode(p2))))
+            else:
+                candidates.append(mutation.mutate(replicas[i],layout, temperatures[i]))
 
         candidate_evaluations=evaluate.vector_evas(candidates, layout)
 

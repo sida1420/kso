@@ -65,7 +65,7 @@ def run():
     while generation_count<paras.generation_limit:
         generation_count+=1
         if generation_count%log_range==0 or paras.dev_mode==True:
-            if generation_count>=log_range*10:
+            if generation_count>=log_range*10 and log_range<100:
                 log_range*=10
             print(f"\tGENERATION {generation_count}")
         

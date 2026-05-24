@@ -273,8 +273,6 @@ class Layout:
                     self.remaps[1][key]=key
 
         # print(self.remaps[0][self.chat])
-        
-
 
         assert self.remaps[0][self.chat]!=[self.chat_name,], "BUG!"
         # if self.remaps[0][self.chat]==[self.chat_name,]:
@@ -331,6 +329,11 @@ class Layout:
         file_name="keystrokes.json"
         check_required_config_file(file_name)
         missing_w_count=0
+
+        #special keys(eat the whole key and don't have shift counterparts)
+        self.special_keybinds=set()
+
+
         try:
             with open(f'config/{file_name}','r', encoding='utf-8') as file:
                 keystrokes_dict=json.load(file)
@@ -349,6 +352,11 @@ class Layout:
                 # keystroke["weight"]=average
                 self.total_weights+=keystroke["weight"]
             else: missing_w_count+=1
+
+            if "shift_safe" in keystroke and keystroke["shift_safe"]:
+                for key in keystroke["keys"]:
+                    self.special_keybinds.add(key)
+
             # self.keystrokes=list(keystrokes_dict.values())
 
         average_w=self.total_weights/(len(keystrokes_dict)-missing_w_count)
@@ -390,10 +398,11 @@ class Layout:
                 self.specials[k][2]=self.keybind2idx[self.specials[k][1]]
         
         #special keys
+        self.special_keybinds=[self.keybind2idx[key] for key in self.special_keybinds]
+        self.available_skb=[kb_idx for kb_idx in self.special_keybinds if kb_idx not in self.fixed_keys.values()]
+        self.no_shift_variance_skb_set=set(self.special_keybinds)
+        self.no_shift_variance_skb_set.discard(self.shift_kbi) #pop shift
 
-        self.special_keybinds=[]
-        self.available_skb=[]
-        self.no_shift_variance_skb_set=set()
         self.special_keybinds.append(self.home_kbi)
         if self.home_i is None:
             self.available_skb.append(self.home_kbi)
@@ -724,6 +733,7 @@ if __name__=="__main__":
     print("Keystrokes:", [[l.keybinds[key] for key in keystroke[0]]for keystroke in l.keystrokes])
     print("Available keybinds:", [l.keybinds[key] for key in l.available_keybinds])
     print("Keybind probability:", [(l.keybinds[i],round(prob,2)) for i,prob in enumerate(l.key_probs)])
-
+    print("Special keybinds:", [l.keybinds[key] for key in l.special_keybinds])
+    print("Available special keybinds:", [l.keybinds[key] for key in l.available_skb])
     # print("Assiged finger:")
     #TODO: continue

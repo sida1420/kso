@@ -374,7 +374,7 @@ def vector_evas(population:list, layout: Layout):
 
 
 if __name__ == '__main__':
-    from init import distributed_init
+    from init import *
     l=Layout()
     i=distributed_init(l)
     l.display(i)

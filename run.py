@@ -1,4 +1,4 @@
-from MOEAD import run
+from PT import run
 
 
 run()

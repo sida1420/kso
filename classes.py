@@ -449,7 +449,8 @@ class Layout:
             if remap in self.keybind2idx:
                 self.fixed_keys[keyIdx]=self.keybind2idx[remap]
             else:
-                print("WARNING: Keybind {remap} in fixed_keys.json file is unused, skipping it")
+                raise ValueError(f"KEYBIND {remap} IN fixed_keys.json FILE IS UNUSED!")
+                # print("WARNING: Keybind {remap} in fixed_keys.json file is unused, skipping it")
         self.fixed_keys=encoded_fixed_keys
         # self.fixed_keys={keyIdx:(self.keybind2idx[remap] if remap in self.keybind2idx else remap) for keyIdx, remap in self.fixed_keys.items()}
 

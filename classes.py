@@ -90,8 +90,13 @@ class Layout:
         self.KEY_WIDTH={}
 
         check_required_config_file("key_widths.json")
-        with open('config/key_widths.json','r') as file:
-            self.KEY_WIDTH=json.load(file)
+
+        try:
+            with open('config/key_widths.json','r') as file:
+                self.KEY_WIDTH=json.load(file)
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN key_widths.json FILE: {e}")
+            raise SystemExit
 
         self.keys={}
         cur_y=0
@@ -142,8 +147,12 @@ class Layout:
         file_name='fixed_keys.json'
         check_required_config_file(file_name)
         self.fixed_keys=[]
-        with open(f'config/{file_name}','r', encoding='utf-8') as file:
-            self.fixed_keys.append(json.load(file))
+        try:
+            with open(f'config/{file_name}','r', encoding='utf-8') as file:
+                self.fixed_keys.append(json.load(file))
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+            raise SystemExit
 
         shift_variances={'sft','lsft','shift','rsft','lshift', 'rshift'}
         home_variances={'home','hm'}
@@ -211,8 +220,12 @@ class Layout:
         #FOR SHIFT LAYER
 
         file_name='fixed_shift_keys.json'
-        with open(f'config/{file_name}','r', encoding='utf-8') as file:
-            self.fixed_keys.append(json.load(file))
+        try:
+            with open(f'config/{file_name}','r', encoding='utf-8') as file:
+                self.fixed_keys.append(json.load(file))
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+            raise SystemExit
 
 
         for key,remap in self.fixed_keys[1].items():
@@ -318,20 +331,24 @@ class Layout:
         file_name="keystrokes.json"
         check_required_config_file(file_name)
         missing_w_count=0
-        with open(f'config/{file_name}','r', encoding='utf-8') as file:
-            keystrokes_dict=json.load(file)
-            for name, keystroke in keystrokes_dict.items():
-                if isinstance(keystroke,list):
-                    keystrokes_dict[name]={"keys":keystroke,}
-                    keystroke=keystrokes_dict[name]
-                else:
-                    if "keys" not in keystroke:
-                        raise ValueError(f"\nPLEASE ENTER KEYS FOR [{name.upper()}] IN {file_name} FILE FIRST!")
-                
-                if "weight" in keystroke:
-                    # keystroke["weight"]=average
-                    self.total_weights+=keystroke["weight"]
-                else: missing_w_count+=1
+        try:
+            with open(f'config/{file_name}','r', encoding='utf-8') as file:
+                keystrokes_dict=json.load(file)
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+            raise SystemExit
+        for name, keystroke in keystrokes_dict.items():
+            if isinstance(keystroke,list):
+                keystrokes_dict[name]={"keys":keystroke,}
+                keystroke=keystrokes_dict[name]
+            else:
+                if "keys" not in keystroke:
+                    raise ValueError(f"\nPLEASE ENTER KEYS FOR [{name.upper()}] IN {file_name} FILE FIRST!")
+            
+            if "weight" in keystroke:
+                # keystroke["weight"]=average
+                self.total_weights+=keystroke["weight"]
+            else: missing_w_count+=1
             # self.keystrokes=list(keystrokes_dict.values())
 
         average_w=self.total_weights/(len(keystrokes_dict)-missing_w_count)
@@ -436,8 +453,12 @@ class Layout:
         self.assigned_keys={}
         file_name='assigned_fingers.json'
         check_required_config_file(file_name)
-        with open(f'config/{file_name}','r') as file:
-            self.assigned_keys=json.load(file)
+        try:
+            with open(f'config/{file_name}','r') as file:
+                self.assigned_keys=json.load(file)
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+            raise SystemExit
 
 
         self.key_idx2finger_idx=[None]*len(self.idx2key)
@@ -498,19 +519,23 @@ class Layout:
         self.hand=[[],[]] # Initialize two empty lists for left and right hands
         file_name="home_keys.json"
         check_required_config_file(file_name)
-        with open(f'config/{file_name}','r') as file: 
-            for finger, key in json.load(file).items():
-                self._validate_finger(finger,file_name)
-                self._does_key_exist(key, self.keys, file_name, 'layout.txt')
+        try:
+            with open(f'config/{file_name}','r') as file: 
+                for finger, key in json.load(file).items():
+                    self._validate_finger(finger,file_name)
+                    self._does_key_exist(key, self.keys, file_name, 'layout.txt')
 
-                for i,layer in enumerate(self.key2idx):
-                    if key not in layer:
-                        continue
-                    self.home_keys[self.finger2idx[finger]]=self.key2idx[i][key]
+                    for i,layer in enumerate(self.key2idx):
+                        if key not in layer:
+                            continue
+                        self.home_keys[self.finger2idx[finger]]=self.key2idx[i][key]
 
-                hand_code, finger_code=self.get_finger_roll(self.finger2idx[finger])
+                    hand_code, finger_code=self.get_finger_roll(self.finger2idx[finger])
 
-                self.hand[hand_code].append(finger_code)
+                    self.hand[hand_code].append(finger_code)
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+            raise SystemExit
 
         self.hand[0].sort()
         self.hand[1].sort()
@@ -536,14 +561,18 @@ class Layout:
         self.finger_efforts={}
         file_name='parameters.json'
         check_required_config_file(file_name)
-        with open(f'config/{file_name}','r') as file:
-            parameters=json.load(file)
-            if "finger_efforts" not in parameters:
-                raise IndexError(f"\nPLEASE ENTER FINGER EFFORTS IN {file_name} FILE FIRST!")
-            self.finger_efforts=parameters["finger_efforts"]
-            for finger in self.finger_efforts:
-                if finger not in self.finger2idx:
-                    raise ValueError(f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN {file_name}:FINGER_EFFORTS FILE IS INVALID!")
+        try:
+            with open(f'config/{file_name}','r') as file:
+                parameters=json.load(file)
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+            raise SystemExit
+        if "finger_efforts" not in parameters:
+            raise IndexError(f"\nPLEASE ENTER FINGER EFFORTS IN {file_name} FILE FIRST!")
+        self.finger_efforts=parameters["finger_efforts"]
+        for finger in self.finger_efforts:
+            if finger not in self.finger2idx:
+                raise ValueError(f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN {file_name}:FINGER_EFFORTS FILE IS INVALID!")
         #encode
         self.finger_efforts={self.finger2idx[finger]: effort for finger, effort in self.finger_efforts.items()}
 
@@ -551,8 +580,12 @@ class Layout:
         tfinger_dists={}
         file_name='max_finger_distances.json'
         check_required_config_file(file_name)
-        with open(f"config/{file_name}","r") as file:
-            tfinger_dists=json.load(file)
+        try:
+            with open(f"config/{file_name}","r") as file:
+                tfinger_dists=json.load(file)
+        except json.JSONDecodeError as e:
+            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+            raise SystemExit
 
         self.finger_dists={} #THIS USE FINGER CODE AND HAND CODE AS INDEX SYSTEM (SAME WITH FINGER_CODE, HAND_CODE) NOT THE FINGER_IDX SYSTEM (SAME WITH finger2idx)
         for FF, dist in tfinger_dists.items():

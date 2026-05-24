@@ -30,7 +30,7 @@ def normalize_keystrokes(ind: list, layout: Layout):
                     shift_w+=weight
                     shift=True
                 shift_intended=False
-            elif not(shift and kb_idx in layout.special_kb_set and i<len(keystroke)-1 and (keystroke[i+1] in shift_s or keystroke[i+1]==layout.shift_kbi)):
+            elif not(shift and kb_idx in layout.no_shift_variance_skb_set and i<len(keystroke)-1 and (keystroke[i+1] in shift_s or keystroke[i+1]==layout.shift_kbi)):
                 if shift:
                     nkeystroke.append(layout.shift_kbi) #if you are shifting are seeing shift, which mean come back to base layer
                     shift_durations.append(0)

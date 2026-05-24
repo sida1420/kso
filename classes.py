@@ -158,7 +158,7 @@ class Layout:
         home_variances={'home','hm'}
         
         special_variances={
-            'bs':{'bspc','backspace','bs'},
+            'bs':{'bspc','backspace','bs','<'},
             'sp':{'sp','space','spc','_'}
         }
         
@@ -633,8 +633,6 @@ class Layout:
             self.cum_avai_strain_heapmap.append(last_strain)
 
         self.cum_avai_strain_heapmap=tuple(self.cum_avai_strain_heapmap)
-
-
 
         #TODO: precompute FS factors
 

@@ -5,13 +5,17 @@ import random
 import json
 class Parameters:
     def __init__(self):
-            DEFAULT_GENERATION_LIMIT = 1000
-            DEFAULT_ITERATION_LIMIT = 500
+            DEFAULT_GENERATION_LIMIT = 3000
             DEFAULT_POPULATION_SIZE = 10
             DEFAULT_DEV_MODE=False
             self.target_metrics={}
-            with open('config/target_metrics.json') as file:
-                target_metrics=json.load(file)
+            file_name="target_metrics.json"
+            try:
+                with open(f'config/{file_name}') as file:
+                    target_metrics=json.load(file)
+            except json.JSONDecodeError as e:
+                print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+                raise SystemExit
             self.target_metrics=normalize_weights(target_metrics)
     
 
@@ -21,10 +25,6 @@ class Parameters:
                 self.generation_limit=paras["generation_limit"]
             else:
                 self.generation_limit=DEFAULT_GENERATION_LIMIT
-            if "iteration_limit" in paras:
-                self.iteration_limit=paras["iteration_limit"]
-            else:
-                self.iteration_limit=DEFAULT_ITERATION_LIMIT
             if "population_size" in paras:
                 self.population_size=paras["population_size"]
             else:
@@ -33,8 +33,6 @@ class Parameters:
                 self.dev_mode=paras["dev_mode"]
             else:
                 self.dev_mode=DEFAULT_DEV_MODE
-
-
 
 '''
 '''

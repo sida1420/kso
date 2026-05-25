@@ -415,7 +415,7 @@ class Layout:
                     self.available_skb.append(kb)
         #special set
         self.special_kb_set=set(self.special_keybinds)
-        self.avilable_skb_set=set(self.available_skb)
+        self.available_skb_set=set(self.available_skb)
         # raise ValueError()
 
 
@@ -492,7 +492,7 @@ class Layout:
                     self.key_idx2finger_idx[self.key2idx[i][key]]=self.finger2idx[finger]
 
     def _init_artist(self):
-        self.fig, self.ax = plt.subplots()
+        self.fig, self.ax = plt.subplots(figsize=(6.4,3.6))
         bgc='#13161B'
         tc='#CBF1F5'
         self.fig.patch.set_facecolor(bgc)
@@ -517,28 +517,28 @@ class Layout:
         stc='#E3FDFD'
         base_x_offset=-0.1
         base_y_offset=-0.1
+
+        shift_x_offset=0.25
+        shift_y_offset=0.25
         for key, data in self.keys.items():
-            if key not in self.key2idx[0]:
+            if all(key not in layer for layer in self.key2idx):
                 continue
             rect = patches.Rectangle((data._pos.x, data._pos.y), data._width, 1, 
                          linewidth=0.1, edgecolor=ec, facecolor=fc, alpha=1)
             self.rects.append(rect)
             self.ax.add_patch(rect)
 
+            if key in self.key2idx[0]:
+                
+                self.texts.append(self.ax.text(data.fpos.x+base_x_offset, data.fpos.y+base_x_offset, self.remaps[0][key] if key in self.remaps[0] else key, 
+                    color=tc, fontsize=12, fontweight='bold',
+                    ha='center', va='center'))
 
-            self.texts.append(self.ax.text(data.fpos.x+base_x_offset, data.fpos.y+base_x_offset, self.remaps[0][key] if key in self.remaps[0] else key, 
-                color=tc, fontsize=12, fontweight='bold',
-                ha='center', va='center'))
-
-        #SHIFT LAYER
-        shift_x_offset=0.25
-        shift_y_offset=0.25
-        for key, data in self.keys.items():
-            if key not in self.key2idx[1]:
-                continue
-            self.texts.append(self.ax.text(data.fpos.x+shift_x_offset, data.fpos.y+shift_y_offset, self.remaps[1][key] if key in self.remaps[1] else key, 
-                color=stc, fontsize=8, fontweight='bold',
-                ha='center', va='center'))
+            #SHIFT LAYER
+            if key in self.key2idx[1]:
+                self.texts.append(self.ax.text(data.fpos.x+shift_x_offset, data.fpos.y+shift_y_offset, self.remaps[1][key] if key in self.remaps[1] else key, 
+                    color=stc, fontsize=8, fontweight='bold',
+                    ha='center', va='center'))
 
 
         self.ax.autoscale_view()
@@ -631,21 +631,6 @@ class Layout:
 
     def _precompute(self):
         self.key_sq_dists=tuple([distance_sq(self.keys[self.idx2key[i]].fpos,self.keys[self.idx2key[j]].fpos) for i in range(len(self.idx2key))] for j in range(len(self.idx2key))) #SQUARE OF DISTANCE BETWEEN KEYS, USE KEY_IDX AS INDEX SYSTEM
-
-        self.initial_FS_cache=[{},{}] #cache for FS calculation, index by hand code, key is (finger_i, finger_j) with finger code as index system, value is the FS cost between the two fingers
-        self.initial_FS_total=0
-        from evaluate import FS_full
-        #finger_tasks only have 1 value for key_idx, not the time and count, since it's only used for initialization
-        #assume 1 finger is pressing chat
-        temp_key=self.home_keys[self.key_idx2finger_idx[self.chat_i[0]]] #store the original key idx for the finger that presses chat
-        self.home_keys[self.key_idx2finger_idx[self.chat_i[0]]]=self.chat_i[0]
-
-
-        for hand_code in [0,1]:
-            self.initial_FS_total+=FS_full(self, self.home_keys, self.hand[hand_code], hand_code, self.initial_FS_cache)
-
-
-        self.home_keys[self.key_idx2finger_idx[self.chat_i[0]]]=temp_key #revert back
 
         # PRECOMPUTING MAXIMUM DISTANCE FOR PRINCIPLED GEOMETRIC PENALTIES
         self.max_sq_dist = max(max(row) for row in self.key_sq_dists)

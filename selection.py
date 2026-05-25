@@ -34,10 +34,18 @@ def selection(temperatures, replicas, evaluations, scores, candidates, candidate
             dominated=False
 
             ma=0
+            def identical(j):
+                for k in range(len(replicas[i])):
+                    if replicas[i][k]!=elites[j][2][k]:
+                        return False
+                return True
+
             for j in range(len(elites)):
                 if elites[j][0]>elites[ma][0]:
                     ma=j
             
+            if identical(ma):
+                continue
             if len(elites)<num_elites:
                 elites.append(entry)
             elif scores[i]<elites[ma][0]: elites[ma]=entry

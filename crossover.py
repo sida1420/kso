@@ -59,7 +59,7 @@ class RKPosDecoder:
 
         for akb_idx, kb_idx, _ in rank:
             cx, cy, cl = rk[akb_idx]
-            if kb_idx in self.layout.avilable_skb_set:
+            if kb_idx in self.layout.available_skb_set:
                 best_i = None
                 best_idx = None
                 best_dist = float('inf')

@@ -493,27 +493,41 @@ class Layout:
 
     def _init_artist(self):
         self.fig, self.ax = plt.subplots()
+        bgc='#13161B'
+        tc='#CBF1F5'
+        self.fig.patch.set_facecolor(bgc)
+        self.ax.set_facecolor(bgc) 
+        self.ax.tick_params(colors=tc)
+        self.ax.spines["left"].set_color(tc)
+        self.ax.spines["right"].set_color(tc)
+        self.ax.spines["top"].set_color(tc)
+        self.ax.spines["bottom"].set_color(tc)
+        self.ax.xaxis.label.set_color(tc)
+        self.ax.yaxis.label.set_color(tc)
+        self.ax.title.set_color(tc)
         self.ax.set_aspect('equal', adjustable='box')
         self.ax.invert_yaxis()
 
     def _init_visual(self):
         self.rects=[]
         self.texts=[]
-        ec='#0000FF'
-        fc='#ADD8E6'
+        ec='#3F72AF'
+        fc='#00ADB5'
+        tc='#E3FDFD'
+        stc='#E3FDFD'
         base_x_offset=-0.1
         base_y_offset=-0.1
         for key, data in self.keys.items():
             if key not in self.key2idx[0]:
                 continue
             rect = patches.Rectangle((data._pos.x, data._pos.y), data._width, 1, 
-                         linewidth=0.1, edgecolor=ec, facecolor=fc, alpha=0.5)
+                         linewidth=0.1, edgecolor=ec, facecolor=fc, alpha=1)
             self.rects.append(rect)
             self.ax.add_patch(rect)
 
 
             self.texts.append(self.ax.text(data.fpos.x+base_x_offset, data.fpos.y+base_x_offset, self.remaps[0][key] if key in self.remaps[0] else key, 
-                color='black', fontsize=12, fontweight='bold',
+                color=tc, fontsize=12, fontweight='bold',
                 ha='center', va='center'))
 
         #SHIFT LAYER
@@ -523,7 +537,7 @@ class Layout:
             if key not in self.key2idx[1]:
                 continue
             self.texts.append(self.ax.text(data.fpos.x+shift_x_offset, data.fpos.y+shift_y_offset, self.remaps[1][key] if key in self.remaps[1] else key, 
-                color='black', fontsize=8, fontweight='bold',
+                color=stc, fontsize=8, fontweight='bold',
                 ha='center', va='center'))
 
 
@@ -675,6 +689,7 @@ class Layout:
         self.texts=[]
         base_x_offset=-0.1
         base_y_offset=-0.1
+        tc='#EEEEEE'
 
         for keyIdx, remapIdx in enumerate(potential_remaps):
             if remapIdx is None:
@@ -683,11 +698,11 @@ class Layout:
             remap=self.keybinds[remapIdx]
             if keyIdx<self.sizes[0]:
                 self.texts.append(self.ax.text(self.keys[key].fpos.x+base_x_offset, self.keys[key].fpos.y+base_y_offset, remap, 
-                    color='black', fontsize=12, fontweight='bold',
+                    color=tc, fontsize=12, fontweight='bold',
                     ha='center', va='center'))
             else:
                 self.texts.append(self.ax.text(self.keys[key].fpos.x+0.25, self.keys[key].fpos.y+0.25, remap, 
-                    color='black', fontsize=8, fontweight='bold',
+                    color=tc, fontsize=8, fontweight='bold',
                     ha='center', va='center'))
 
 

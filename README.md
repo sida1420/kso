@@ -2,7 +2,7 @@
 > We still in beta btw
 # KSO
 
-A multi-objective optimizer for keyboard keybind layouts using MOEA/D. Optimizes keybind placements.
+A multi-objective optimizer for keyboard keybind layouts using Parallel Tampering. Optimizes keybind placements.
 
 <img src="./output/top_1.svg" width="400">
 
@@ -47,7 +47,7 @@ After edit your desire keystrokes in `config/keystrokes.json`, run this in termi
 python run.py
 ```
 
-The algorithm runs for 500 generations by default. Results are saved as SVG images in the `output/` directory:
+The algorithm runs for 3000 generations by default. Results are saved as SVG images in the `output/` directory:
 - `layout.svg` — initial layout
 - `top_1.svg` ... `top_5.svg` — best optimized layouts
 

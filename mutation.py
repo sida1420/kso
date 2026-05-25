@@ -2,6 +2,9 @@ import random
 import math
 from classes import Layout
 import bisect
+
+
+
 max_attempts=10
 def CASH_pick(layout: Layout):
     r=random.random()*layout.cum_avai_strain_heapmap[-1]
@@ -102,13 +105,8 @@ def physical_key_swap(ind: list, layout: Layout, threshold: float):
 
     special_s=layout.special_kb_set
 
-    
-
-     
-        
         
 def keystroke_swap(ind,layout): #I don't think this is possible
-
     pass
 
 

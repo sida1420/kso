@@ -29,23 +29,23 @@ def selection(temperatures, replicas, evaluations, scores, candidates, candidate
             scores[i]=candidate_scores[i]
 
             #update elites
-            entry=(scores[i], evaluations[i], replicas[i])
+            entry=(scores[i], evaluations[i].copy(), replicas[i][:])
             dominated_elites=[]
             dominated=False
 
-            ma=0
             def identical(j):
                 for k in range(len(replicas[i])):
                     if replicas[i][k]!=elites[j][2][k]:
                         return False
                 return True
+            if any(identical(j) for j in range(len(elites))):
+                continue
+            ma=0
 
             for j in range(len(elites)):
                 if elites[j][0]>elites[ma][0]:
                     ma=j
             
-            if identical(ma):
-                continue
             if len(elites)<num_elites:
                 elites.append(entry)
             elif scores[i]<elites[ma][0]: elites[ma]=entry

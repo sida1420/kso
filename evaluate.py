@@ -129,17 +129,24 @@ class Evaluator:
 
 
     def correct(self, ind):
+        #constraint #0
+        #enough #1
+        #unique #2
         s=set()
 
         for j,i in enumerate(ind):
             if i is not None:
+                if i in s:
+                    return False, 2
                 s.add(i)
                 if i in self.special_keybinds:
                     if j>=self.sizes[0]:
-                        return False
+                        return False, 0
                     if self.counterparts[j] is not None and ind[self.counterparts[j]] is not None:
-                        return False
-        return len(s)==len(self.available_keybinds)+len(set(self.fixed_keys.values()))
+                        return False, 0
+        if  len(s)!=len(self.available_keybinds)+len(set(self.fixed_keys.values())):
+            return False, 1
+        return True, -1
 
     def finger_strain(self, ind, nkey_probs):
         res = 0
@@ -428,12 +435,67 @@ class Evaluator:
 
 
 if __name__ == '__main__':
-    from init import *
-    l=Layout()
-    i=distributed_init(l)
-    l.display(i)
-    e=Evaluator(l)
-    print(e.evaluate([i]))
+    # from init import *
+    # l=Layout()
+    # i=distributed_init(l)
+    # l.display(i)
+    # e=Evaluator(l)
+    # print(e.evaluate([i]))
+    import json
+    layout=Layout()
+    file_name='base_line.json'
+    check_required_config_file(file_name)
+    config={}
+    try:
+        with open(f"config/{file_name}","r", encoding='utf-8') as file:
+            config=json.load(file)
+    except json.JSONDecodeError as e:
+        print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
+        raise SystemExit
+
+    if "base" not in config:
+        raise ValueError(f"\nYOUR {file_name} FILE NEEDS A BASE LAYER!")
+    
+    ind=[None]*len(layout.idx2key)
+
+    for key, kb in config["base"].items():
+        layout._does_key_exist(key,layout.keys,file_name+":BASE",'layout.txt')
+        layout._does_key_exist(kb, layout.keybind2idx,file_name+":BASE",'keystrokes.json')
+
+        ind[layout.key2idx[0][key]]=layout.keybind2idx[kb]
+    
+    if "shift" in config:
+        for key, kb in config["shift"].items():
+            layout._does_key_exist(key,layout.keys,file_name+":SHIFT",'layout.txt')
+            layout._does_key_exist(kb, layout.keybind2idx,file_name+":SHIFT",'keystrokes.json')
+
+            ind[layout.key2idx[1][key]]=layout.keybind2idx[kb]
+    
+    for ki, kbi in layout.fixed_keys.items():
+        if ind[ki] is not None and kbi!=ind[ki]:
+            raise ValueError(f"\nYOU CAN'T ASSIGN DIFFERENT VALUE FOR FIXED KEY {layout.idx2key[ki]} IN {file_name}:SHIFT!")
+        ind[ki]=kbi
+    evaluator=Evaluator(layout)
+
+
+    correct, case=evaluator.correct(ind)
+    if not correct:
+        if case==0:
+            raise ValueError(f"\nYOUR LAYOUT IN {file_name} FILE VIOLATES ANY OF THESE CONSTRAINTS: SHIFT SAFE, SPECIAL IN SHIFT!")
+        if case==1:
+            raise ValueError(f"\nYOUR LAYOUT IN {file_name} FILE DOESN'T HAVE ENOUGH KEYS/HAS REDUNDANT KEYS DECLARED IN keystrokes.json FILE!")
+        if case==2:
+            raise ValueError(f"\nYOUR LAYOUT IN {file_name} FILE HAS DUPLICATE KEYS")
+    print("EXPECTED CRAFTS:")
+    keystrokes=evaluator.normalize_keystrokes(ind)[0]
+    for keystroke,_ in keystrokes:
+        print([layout.keybinds[kbi] for kbi in keystroke])
+
+    score=evaluator.evaluate([ind])[0]
+    print("SCORE:",score)
+    layout.display(ind,score.items(),'baseline')
+    
+    
 
 
 

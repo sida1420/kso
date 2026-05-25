@@ -8,6 +8,7 @@ import numpy as np
 import mutation
 import crossover
 import os
+import json
 from concurrent.futures import ProcessPoolExecutor
 
 
@@ -147,7 +148,7 @@ def run():
                                     elites, num_elites, paras.population_size,
                                     generation_count)
 
-            # ─── Replica swaps ──────────────────────────────────────────────────
+            # ─── Replica swaps (──────────────────────────────────────────────────
             if generation_count % n_swaps == 0:
                 replicas, evaluations, scores, swap_accept = \
                     mutation.swap_replicas(temperatures, replicas, evaluations,
@@ -177,7 +178,17 @@ def run():
     print(f"\tSCORE\t{objective_str}")
     for i, elite in enumerate(sorted(elites, key=lambda e: e[0])):
         score_str = "\t\t".join(f"{round(v, 3)}" for v in elite[1])
-        print(f"RANK {i + 1}:\t{round(elite[0], 3)}\t{score_str}\n")
+        print(f"RANK {i + 1}:\t{round(elite[0], 3)}\t{score_str}")
+        if paras.dev_mode:
+            binds={"base":{},"shift":{}}
+            for idx, kbi in enumerate(elite[2]):
+                if kbi is None:
+                    continue
+                if idx<layout.sizes[0]: layer="base"
+                else: layer="shift"
+                binds[layer][layout.idx2key[idx]]=layout.keybinds[kbi]
+            print(json.dumps(binds,ensure_ascii=False))
+        print()
         layout.display(elite[2], zip(objectives, elite[1]), name=f'top_{i + 1}')
 
     if paras.dev_mode:

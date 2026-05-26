@@ -90,7 +90,7 @@ Lower scores are better.
 <img width="713" height="341,5" alt="Screenshot 2026-05-26 175002" src="https://github.com/user-attachments/assets/523e0ef3-cd05-48bd-8571-c236438893bf" />
 <img width="781" height="158" alt="Screenshot 2026-05-26 175107" src="https://github.com/user-attachments/assets/661b6a2b-2eb2-4af9-a38a-aa7c3e645b11" />
 
-The terminal will appear with the path the script folder.
+The terminal will appear with the path of the script folder.
 
 <img width="780" height="277" alt="Screenshot 2026-05-26 111047" src="https://github.com/user-attachments/assets/9a869743-ca9d-48d3-a7bc-e06b3fa72995" />
 
@@ -99,7 +99,7 @@ Recommend: `winget install Python.Python.3.12`
 
 <img width="737" height="368" alt="Screenshot 2026-05-26 111558" src="https://github.com/user-attachments/assets/2bb1f18a-b8d5-4c19-b864-e0bee737acfe" />
 
-Make sure you reopen the terminal, before running any python related command.
+Make sure you reopen the terminal before running any python related command!
 
 ### Install dependencies
 1. Enter `pip install matplotlib numpy` in terminal and hit enter, that's all

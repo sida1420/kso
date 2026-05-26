@@ -82,6 +82,13 @@ Lower scores are better.
 
 ### Install python
 > imma do it later :)
+<img width="1010" height="376" alt="Screenshot 2026-05-26 111802" src="https://github.com/user-attachments/assets/920bd3f5-0432-4f05-a793-3970030c4748" />
+<img width="1123" height="737" alt="Screenshot 2026-05-26 111558" src="https://github.com/user-attachments/assets/2bb1f18a-b8d5-4c19-b864-e0bee737acfe" />
+<img width="780" height="277" alt="Screenshot 2026-05-26 111047" src="https://github.com/user-attachments/assets/9a869743-ca9d-48d3-a7bc-e06b3fa72995" />
+<img width="781" height="158" alt="Screenshot 2026-05-26 175107" src="https://github.com/user-attachments/assets/661b6a2b-2eb2-4af9-a38a-aa7c3e645b11" />
+<img width="1426" height="683" alt="Screenshot 2026-05-26 175002" src="https://github.com/user-attachments/assets/523e0ef3-cd05-48bd-8571-c236438893bf" />
+<img width="951" height="473" alt="Screenshot 2026-05-26 174843" src="https://github.com/user-attachments/assets/1d475481-7a1e-47a1-943e-4474efa4297d" />
+
 ### Install dependencies
 > imma do it later :)
 ### Config files

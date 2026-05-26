@@ -81,16 +81,33 @@ Lower scores are better.
 ## Detailed Tutorial
 
 ### Install python
-> imma do it later :)
-<img width="1010" height="376" alt="Screenshot 2026-05-26 111802" src="https://github.com/user-attachments/assets/920bd3f5-0432-4f05-a793-3970030c4748" />
-<img width="1123" height="737" alt="Screenshot 2026-05-26 111558" src="https://github.com/user-attachments/assets/2bb1f18a-b8d5-4c19-b864-e0bee737acfe" />
-<img width="780" height="277" alt="Screenshot 2026-05-26 111047" src="https://github.com/user-attachments/assets/9a869743-ca9d-48d3-a7bc-e06b3fa72995" />
+1. Open the folder stores your download, extract the script (the name could be different)
+
+<img width="475" height="236" alt="Screenshot 2026-05-26 174843" src="https://github.com/user-attachments/assets/1d475481-7a1e-47a1-943e-4474efa4297d" />
+
+2. Click at the folder path, change it to `cmd` and press enter
+
+<img width="713" height="341,5" alt="Screenshot 2026-05-26 175002" src="https://github.com/user-attachments/assets/523e0ef3-cd05-48bd-8571-c236438893bf" />
 <img width="781" height="158" alt="Screenshot 2026-05-26 175107" src="https://github.com/user-attachments/assets/661b6a2b-2eb2-4af9-a38a-aa7c3e645b11" />
-<img width="1426" height="683" alt="Screenshot 2026-05-26 175002" src="https://github.com/user-attachments/assets/523e0ef3-cd05-48bd-8571-c236438893bf" />
-<img width="951" height="473" alt="Screenshot 2026-05-26 174843" src="https://github.com/user-attachments/assets/1d475481-7a1e-47a1-943e-4474efa4297d" />
+
+The terminal will appear with the path the script folder.
+
+<img width="780" height="277" alt="Screenshot 2026-05-26 111047" src="https://github.com/user-attachments/assets/9a869743-ca9d-48d3-a7bc-e06b3fa72995" />
+
+3. Install python by enter: `winget install Python.Python.<python version>`
+Recommend: `winget install Python.Python.3.12`
+
+<img width="737" height="368" alt="Screenshot 2026-05-26 111558" src="https://github.com/user-attachments/assets/2bb1f18a-b8d5-4c19-b864-e0bee737acfe" />
+
+Make sure you reopen the terminal, before running any python related command.
 
 ### Install dependencies
-> imma do it later :)
+1. Enter `pip install matplotlib numpy` in terminal and hit enter, that's all
+
+<img width="505" height="188" alt="Screenshot 2026-05-26 111802" src="https://github.com/user-attachments/assets/920bd3f5-0432-4f05-a793-3970030c4748" />
+
+2. Run the script first to make sure everything is okay `python run.py`
+
 ### Config files
 #### keystrokes.json
 Most of your configuration is here! For each item or combo of items, make this format:

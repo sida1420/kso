@@ -121,7 +121,10 @@ You might want some keys be fixed, then put it here.
     "<key_slot_2":"<assigned_key_2"
 }
 ```
+Same with `fixed_shift_keys.json`
+
 This file always requires your `chat` key. Like the example bellow.
+
 
 Example (default):
 ```json
@@ -137,6 +140,8 @@ Key slots you want the algorithm to asign your keybinds are here.
 ```txt
 <key_slot_1> <key_slot_2> <key_slot_3>
 ```
+Same with `available_shift_keys.txt`
+
 Example (default)
 ```txt
 ` 1 2 3 4 5 6 7
@@ -186,5 +191,34 @@ Example (default):
 ```
 It looks like this:
 ![image](https://i.postimg.cc/Qt9yszHQ/keyboard-layout.png)
+####  base_line.json
+Your custom layout, run `python evaluate.py` to get the score of your layout.
+```json
+{
+    "base":{
+        "<key_slot>":"<assigned_key>",
+        "<key_slot_2>":"<assigned_key_2>"
+    },
+    "shift":{
+        "<key_slot_3>":"<assigned_key_3>"
+    }
+}
+```
+Example:
+```json
+{
+    "base": {
+        "w": "h",
+        "s": "home",
+        "d": "q"
+    },
+    "shift": {
+        "4": "ó", 
+        "d": "g", 
+        "g": "ỏ"
+    }
+}
+```
+But remember the number of assigned keys must be the same with number of keys in `keystrokes.json` file!
 
 ---

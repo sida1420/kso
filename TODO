@@ -3,7 +3,5 @@
 + columns swap?
 + key sequences swap if they have same length?
 - New crossover algorithm - seem impossible
-- json correction code
-praser
 normalize - partily done
 cache idea point

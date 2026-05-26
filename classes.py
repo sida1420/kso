@@ -542,6 +542,7 @@ class Layout:
 
 
         self.ax.autoscale_view()
+        Path("output").mkdir(parents=True, exist_ok=True)
         plt.savefig('output/layout.svg')
 
     def _init_home_keys(self):

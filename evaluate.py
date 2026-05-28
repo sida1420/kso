@@ -242,7 +242,7 @@ class Evaluator:
         return res
 
 
-    def sequence_costs(self, ind: list, nkeystrokes):
+    def sequence_costs(self, ind: list, nkeystrokes, normalize=False):
         #init total costs
         travel_distance_cost=0
         roll_cost=0
@@ -366,12 +366,6 @@ class Evaluator:
                 local_finger_stretch += current_FS_total/(self.FS_decay_cache[2*time])
 
 
-
-
-
-
-
-
             #cost of moving all finger back to home row
             #only calculate if finger need to move
             time=len(keystroke)
@@ -401,16 +395,16 @@ class Evaluator:
                     *self.finger_efforts[finger]
                 )
 
-
-            use_count_cost+=local_use_count_cost*weight
-            travel_distance_cost+=local_travel_distance*weight
-            roll_cost+=local_roll_cost*weight
-            finger_stretch_cost+=local_finger_stretch*weight
+            if normalize:
+                length=len(keystroke)
+                len_inverse=1/length
+            use_count_cost+=local_use_count_cost*weight *(len_inverse if normalize else 1)
+            travel_distance_cost+=local_travel_distance*weight /(length+1 if normalize else 1)
+            roll_cost+=local_roll_cost*weight *(len_inverse if normalize else 1)
+            finger_stretch_cost+=local_finger_stretch*weight *(len_inverse if normalize else 1)
         return travel_distance_cost, use_count_cost, roll_cost, finger_stretch_cost
 
-
-
-    def evaluate(self, population):
+    def evaluate(self, population, normalize=False):
 
         evas=[]
         for i in range(len(population)):
@@ -418,7 +412,7 @@ class Evaluator:
             # print([[self.keybinds[key] for key in keystroke[0]] for keystroke in nkeystrokes])
             # break
 
-            travel_distance_cost, use_count_cost, roll_cost, finger_stretch_cost=self.sequence_costs(population[i], nkeystrokes)
+            travel_distance_cost, use_count_cost, roll_cost, finger_stretch_cost=self.sequence_costs(population[i], nkeystrokes, normalize)
             eva={
                 "finger_strain":self.finger_strain(population[i], nkey_probs),
                 "travel_distance":travel_distance_cost,
@@ -491,8 +485,8 @@ if __name__ == '__main__':
     for keystroke,_ in keystrokes:
         print([layout.keybinds[kbi] for kbi in keystroke])
 
-    score=evaluator.evaluate([ind])[0]
-    print("SCORE:",score)
+    score=evaluator.evaluate([ind],True)[0]
+    print("SCORE:",{obj: round(value,3) for obj, value in score.items()})
     layout.display(ind,score.items(),'baseline')
     
     

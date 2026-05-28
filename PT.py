@@ -170,14 +170,18 @@ def run():
     print('-\t' * 10)
     print("\tFINISHED!")
 
+    evaluator=evaluate.Evaluator(layout)
+
+
     if paras.dev_mode:
         for i, replica in enumerate(replicas):
-            layout.display(replica, zip(objectives, evaluations[i]), name=f'replica_{i}')
+            layout.display(replica, evaluator.evaluate([replica,])[0].items(), name=f'replica_{i}')
 
     objective_str = "\t".join(objectives)
     print(f"\tSCORE\t{objective_str}")
     for i, elite in enumerate(sorted(elites, key=lambda e: e[0])):
-        score_str = "\t\t".join(f"{round(v, 3)}" for v in elite[1])
+        normalized_score=list(evaluator.evaluate([elite[2],],True)[0].values())
+        score_str = "\t\t".join(f"{round(v, 3)}" for v in normalized_score)
         print(f"RANK {i + 1}:\t{round(elite[0], 3)}\t{score_str}")
         if paras.dev_mode:
             binds={"base":{},"shift":{}}
@@ -189,7 +193,7 @@ def run():
                 binds[layer][layout.idx2key[idx]]=layout.keybinds[kbi]
             print(json.dumps(binds,ensure_ascii=False))
         print()
-        layout.display(elite[2], zip(objectives, elite[1]), name=f'top_{i + 1}')
+        layout.display(elite[2], zip(objectives, normalized_score), name=f'top_{i + 1}')
 
     if paras.dev_mode:
         print(f"SWAP ACCEPTANCE RATE:  {total_swap_accept / paras.generation_limit * n_swaps / 2}")

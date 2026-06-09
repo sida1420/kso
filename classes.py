@@ -490,6 +490,11 @@ class Layout:
                         print(f"WARNING: Finger [{finger.upper()}] is pressing the same key [{key}] as another finger in {file_name}! Skipping it.")
                         continue
                     self.key_idx2finger_idx[self.key2idx[i][key]]=self.finger2idx[finger]
+        
+        for key_idx, finger_idx in enumerate(self.key_idx2finger_idx):
+            if finger_idx is None:
+                raise ValueError(f"\nKEY [{self.idx2key[key_idx].upper()}] DOES'T HAVE AN ASSINGED FINGER! PLEASE ASSIGN IT IN {file_name} FILE.")
+
 
     def _init_artist(self):
         self.fig, self.ax = plt.subplots(figsize=(6.4,3.6))

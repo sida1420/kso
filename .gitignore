@@ -6,3 +6,5 @@ replica_*.svg
 baseline.svg
 
 *.zip
+
+GUI.py

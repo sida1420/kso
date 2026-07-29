@@ -1,7 +1,2 @@
-- New mutation algorithm - hard
-+ rows swap?
-+ columns swap?
-+ key sequences swap if they have same length?
-- New crossover algorithm - seem impossible
-normalize - partily done
-cache idea point
+- GUI
+- log results

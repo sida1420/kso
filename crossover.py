@@ -14,11 +14,17 @@ class RKPosDecoder:
         self.pos = {}
         for idx, key in enumerate(layout.idx2key):
             fpos = layout.keys[key].fpos
-            layer = 0.0 if idx < layout.sizes[0] else 1.0
+            layer = 0.0 if idx < layout.sizes[0] else 2.0 #2.0 is finetunable constant
             self.pos[idx] = (fpos.x, fpos.y, layer)
 
         self.free_indices = list(layout.available_keys)
         self.fbase_indices = [idx for idx in self.free_indices if idx < layout.sizes[0]]
+        self.fshift_indices = [idx for idx in self.free_indices if idx >= layout.sizes[0]]
+
+        self.universal_keybinds_set = layout.universal_keybinds_set
+        self.base_keybinds_set = layout.base_keybinds_set
+        self.shift_keybinds_set = layout.shift_keybinds_set
+        self.counterparts = layout.counterparts
 
     def encode(self, ind: list, noise=0.05):
         rk = np.zeros((self.n_akb, 3))
@@ -40,7 +46,8 @@ class RKPosDecoder:
         rank = []
         free = list(self.free_indices)
         fbase = list(self.fbase_indices)
-        used = set()
+        fshift = list(self.fshift_indices)
+        used = set(self.layout.fixed_keys.keys())
 
         for akb_idx, kb_idx in enumerate(self.idx2akb):
             cx, cy, cl = rk[akb_idx]
@@ -59,13 +66,13 @@ class RKPosDecoder:
 
         for akb_idx, kb_idx, _ in rank:
             cx, cy, cl = rk[akb_idx]
-            if kb_idx in self.layout.available_skb_set:
+            if kb_idx in self.universal_keybinds_set:
                 best_i = None
                 best_idx = None
                 best_dist = float('inf')
                 for i, k_idx in enumerate(fbase):
                     if k_idx in used: continue
-                    cp = self.layout.counterparts.get(k_idx)
+                    cp = self.counterparts.get(k_idx)
                     if cp is not None and cp in used: continue
                     px, py, pl = self.pos[k_idx]
                     dist = (cx - px)**2 + (cy - py)**2 + (cl - pl)**2
@@ -74,7 +81,7 @@ class RKPosDecoder:
                         best_dist = dist
                         best_i = i
                 if best_idx is not None:
-                    cp = self.layout.counterparts.get(best_idx)
+                    cp = self.counterparts.get(best_idx)
                     ind[best_idx] = kb_idx
                     used.add(best_idx)
                     if best_i is not None:
@@ -82,6 +89,42 @@ class RKPosDecoder:
                         fbase.pop()
                     if cp is not None:
                         used.add(cp)
+            elif kb_idx in self.base_keybinds_set:
+                best_i = None
+                best_idx = None
+                best_dist = float('inf')
+                for i, k_idx in enumerate(fbase):
+                    if k_idx in used: continue
+                    px, py, pl = self.pos[k_idx]
+                    dist = (cx - px)**2 + (cy - py)**2 + (cl - pl)**2
+                    if best_dist > dist:
+                        best_idx = k_idx
+                        best_dist = dist
+                        best_i = i
+                if best_idx is not None:
+                    ind[best_idx] = kb_idx
+                    used.add(best_idx)
+                    if best_i is not None:
+                        fbase[best_i], fbase[-1] = fbase[-1], fbase[best_i]
+                        fbase.pop()
+            elif kb_idx in self.shift_keybinds_set:
+                best_i = None
+                best_idx = None
+                best_dist = float('inf')
+                for i, k_idx in enumerate(fshift):
+                    if k_idx in used: continue
+                    px, py, pl = self.pos[k_idx]
+                    dist = (cx - px)**2 + (cy - py)**2 + (cl - pl)**2
+                    if best_dist > dist:
+                        best_idx = k_idx
+                        best_dist = dist
+                        best_i = i
+                if best_idx is not None:
+                    ind[best_idx] = kb_idx
+                    used.add(best_idx)
+                    if best_i is not None:
+                        fshift[best_i], fshift[-1] = fshift[-1], fshift[best_i]
+                        fshift.pop()
             else:
                 best_i = None
                 best_idx = None

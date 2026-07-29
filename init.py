@@ -44,7 +44,7 @@ def distributed_init(layout: Layout):
         score = (
             layout.finger_efforts[finger_idx] *
             layout.key_sq_dists[key_idx][layout.home_keys[finger_idx]] *
-            (1 if key_idx < layout.sizes[0] else 1.25)
+            (1 if key_idx < layout.sizes[0] else 1.25) #1.25 is finetunable
         )
         scored.append((score, key_idx))
     scored.sort(key=lambda x: x[0])
@@ -59,34 +59,45 @@ def distributed_init(layout: Layout):
             swap_idx = random.randint(0, len(keys) - 1)
             keys[i], keys[swap_idx] = keys[swap_idx], keys[i]
 
-    special_set = set(layout.special_keybinds)
+    
     res = [None] * len(layout.idx2key)
     remaining = list(keys)
     blocked = set()
 
     # 4. Greedy single pass: best position gets best compatible keybind
     for pos in indices:
+        if len(remaining)==0:
+            break
         if pos in blocked:
             continue
 
         chosen = None
+
         if pos >= layout.sizes[0]:
-            # shift layer: take the best remaining non-special
+            # shift layer: take the best remaining non-universal and shift keybinds
             for i, kb in enumerate(remaining):
-                if kb not in special_set:
+                if kb not in layout.universal_keybinds_set and kb not in layout.base_keybinds_set:
                     chosen = kb
                     remaining.pop(i)
                     break
         else:
-            # base layer: take the best remaining keybind (specials allowed)
-            if remaining:
-                chosen = remaining.pop(0)
-                if chosen in special_set:
-                    phys = layout.idx2key[pos]
-                    if phys in layout.key2idx[1]:
-                        sp = layout.key2idx[1][phys]
-                        if sp in layout.available_keys:
-                            blocked.add(sp)
+            # base layer: take the best remaining keybind
+            cp=layout.counterparts[pos]
+            for i, kb in enumerate(remaining):
+                if kb in layout.shift_keybinds_set:
+                    continue
+                if kb not in layout.universal_keybinds_set:
+                    chosen = kb
+                    remaining.pop(i)
+                    break
+                if kb in layout.universal_keybinds_set:
+                    if cp is not None:
+                        if cp in layout.fixed_keys:
+                            continue
+                        chosen=kb
+                        remaining.pop(i)
+                        blocked.add(cp)
+                        break
 
         if chosen is not None:
             res[pos] = chosen
@@ -98,25 +109,49 @@ def distributed_init(layout: Layout):
 
     return res
 def random_init(layout:Layout):
-    #only take key indices from layer 1, and it shouldn't fixed in layer 2
+    #universal keybinds only take key indices from layer 1, and it shouldn't fixed in layer 2
     used_indices=random.sample([key_idx for key_idx in layout.layered_available_keys[0] if layout.counterparts[key_idx] not in layout.fixed_keys],
-                                len(layout.special_keybinds))
+                                len(layout.available_ukb))
 
-
-    used_indice_s=set(used_indices)
+    used_indices_set=set(used_indices)
+    used_keybinds_set=set(layout.available_ukb)
     for key_idx in used_indices:
         key=layout.idx2key[key_idx]
         if key in layout.key2idx[1]:
-            used_indice_s.add(layout.key2idx[1][key])
-
-    new_AK=[key_idx for key_idx in layout.available_keys if key_idx not in used_indice_s]
-    new_AB=[keybind_idx for keybind_idx in layout.available_keybinds if keybind_idx not in layout.special_keybinds]
-    indices=random.sample(new_AK,len(new_AK))
-    keys=random.sample(new_AB,len(new_AB))
+            used_indices_set.add(layout.key2idx[1][key])
 
     res=[None]*len(layout.idx2key)
-    for i,keybind_idx in enumerate(layout.special_keybinds):
+    for i,keybind_idx in enumerate(layout.available_ukb):
         res[used_indices[i]]=keybind_idx
+
+    #base layer keybinds
+    new_ABK=[key_idx for key_idx in range(layout.sizes[0]) if key_idx not in used_indices_set and key_idx not in layout.fixed_keys]
+    new_ABKB=[keybind_idx for keybind_idx in layout.available_bkb]
+    
+    indices=random.sample(new_ABK,len(new_ABK))
+    keys=random.sample(new_ABKB,len(new_ABKB))
+    used_keybinds_set.update(keys)
+
+    for idx,key in zip(indices,keys):
+        used_indices_set.add(idx)
+        res[idx]=key
+
+    #shift layer keybinds
+    new_ASK=[key_idx for key_idx in range(layout.sizes[0],layout.sizes[0]+layout.sizes[1]) if key_idx not in used_indices_set and key_idx not in layout.fixed_keys]
+    new_ASKB=[keybind_idx for keybind_idx in layout.available_skb]
+    indices=random.sample(new_ASK,len(new_ASK))
+    keys=random.sample(new_ASKB,len(new_ASKB))
+    used_keybinds_set.update(keys)
+    for idx,key in zip(indices,keys):
+        used_indices_set.add(idx)
+        res[idx]=key
+    
+    #left over keybinds
+    new_AK=[key_idx for key_idx in layout.available_keys if key_idx not in used_indices_set]
+    new_AKB=[keybind_idx for keybind_idx in layout.available_keybinds if keybind_idx not in used_keybinds_set]
+    indices=random.sample(new_AK,len(new_AKB))
+    keys=random.sample(new_AKB,len(new_AKB))
+
     for idx,key in zip(indices,keys):
         res[idx]=key
     for i,j in layout.fixed_keys.items():
@@ -146,8 +181,6 @@ def init_weight_vectors(target_metrics, population_size:int, concentration=10.0 
 
     samples=np.random.dirichlet(alpha, size=population_size-1)
 
-
-
     weight_vecs=list(samples)
 
     sorted_vecs=[weight_vector]
@@ -169,14 +202,16 @@ def init(population_size: int, layout: Layout):
 
 
 if __name__=='__main__':
-    from evaluate import correct
+    from evaluate import Evaluator
     layout=Layout()
+    e=Evaluator(layout)
     n=100    
-    init_layout=distributed_init(layout)
-    # while correct(init_layout,layout):
-        # print("hello")d
-        # init_layout=distributed_init(layout)
-    
+    init_layout=random_init(layout)
+    while e.correct(init_layout)[0] and n>0:
+        print("hello")
+        init_layout=random_init(layout)
+        n-=1
+
     print(init_layout)
     layout.display(init_layout)
     print(init_weight_vectors({1:10,3:10,2:10},10))

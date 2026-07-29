@@ -8,8 +8,8 @@ A multi-objective optimizer for keyboard keybind layouts using Parallel Tamperin
 
 ## Installation
 
-Requires **Python 3.7+**.
-After download Python, run this in terminal:
+Requires **Python 3.10+**.
+After download Python, run this in terminal (You can skip this, the script can install dependencies itself):
 ```bash
 pip install matplotlib numpy
 ```
@@ -116,12 +116,12 @@ Most of your configuration is here! For each item or combo of items, make this f
   "<name>":{
     "keys": [<key sequence>],
     "weight": <weight>  #How important is it, default is average
-    "shift_safe": <true/false> #only use in base layer, doesn't allow another key in shift layer
+    "layer": <"both"/"any"/"base"/"shift">
   },
   "<name_2>":{
     "keys": [<key_sequence_2>],
     "weight": <weight_2>
-    "shift_safe": <true/false>
+    "layer": <"both"/"any"/"base"/"shift">
 }
 ```
 Example:
@@ -130,11 +130,11 @@ Example:
   "iron_ingot_n_iron_axe": {
     "keys": ["ô", "i", "lsft", "home", "+", "8"],
     "weight": 4,
-    "shift_safe": true
+    "layer": "both"
   }
 }
 ```
-> Key's names don't have to match my format, but they need to be consistent across files (name mustn't have space, and only "lsft", "chat", "home" are fixed).
+> Key's names don't have to match my format, but they need to be consistent across files (name mustn't have space).
 
 #### fixed_keys.json
 

@@ -1,11 +1,23 @@
 
+import importlib.util
+import subprocess
+import sys
+from types import SimpleNamespace
+def install(package_to_install):
+    if importlib.util.find_spec(package_to_install) is None:
+        print(f"WARNING: {package_to_install} not found. Installing... this may take a while.")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package_to_install])
+
+install("matplotlib")
+install("numpy")
 
 import json
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import math
 from pathlib import Path
 import shutil
+import matplotlib.pyplot as plt 
+import matplotlib.patches as patches
+
 def distance_sq(pos1, pos2): #special distance
     x=(pos1.x-pos2.x)*1.25
     y=pos1.y-pos2.y
@@ -153,28 +165,24 @@ class Layout:
         except json.JSONDecodeError as e:
             print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
             raise SystemExit
-
-        shift_variances={'sft','lsft','shift','rsft','lshift', 'rshift'}
-        home_variances={'home','hm'}
         
         special_variances={
-            'bs':{'bspc','backspace','bs','<'},
-            'sp':{'sp','space','spc','_'}
+            'bspc':{'bspc','backspace','bs','<'},
+            'spc':{'sp','space','spc','_'},
+            'sft': {'sft','lsft','shift','rsft','lshift', 'rshift'},
+            'chat': {'chat'},
+            'home': {'home', 'hm'},
         }
+
+        #Special keys, with keyslot, name, keybind (if keyslot still none it means the key is flexible)
         
-        has_shift=False
-
-        self.shift='lsft'
-        self.shift_name='lsft'
-        self.chat='t'
-        self.chat_name='chat'
-        self.home=None
-        self.home_name='home'
-        self.specials={
-            'bs':[None,None,None],
-            'sp':[None,None,None]
+        self.special_keys={
+            'bspc':[None,'bspc',None],
+            'spc':[None,'spc',None],
+            'sft':[None,'sft',None],
+            'chat':[None,'chat',None],
+            'home':[None,'home',None]
         }
-
         
 
         # print(self.fixed_keys)
@@ -183,39 +191,48 @@ class Layout:
             self._is_key_correct_type(key, file_name)
             self._does_key_exist(key,self.keys,file_name,'layout.txt')
 
-            if (isinstance(remap,str) and remap==self.chat_name) or (isinstance(remap,list) and (self.chat_name==remap[0] or (len(remap)>1 and self.chat_name==remap[1]))):
-                self.chat=key
-            elif isinstance(remap,str):
-                if remap in shift_variances:
-                    self.shift=key
-                    self.shift_name=remap
-                    has_shift=True
-                else:
-                    for k,v in special_variances.items():
-                        if remap in v:
-                            self.specials[k][0]=key
-                            self.specials[k][1]=remap
+            if isinstance(remap,list):
+                if remap[0] in special_variances['chat']:
+                    self.special_keys["chat"][0]=key
+                    self.special_keys["chat"][1]= remap[0]
+                    #Edge case: the other key in the list with chat is also a special key
+                    if len(remap)>1:
+                        for k,v in special_variances.items():
+                            if k=='chat': continue
+                            if remap[1] in v:
+                                self.special_keys[k][0]=key
+                                self.special_keys[k][1]=remap[1]
+                elif (len(remap)>1 and remap[1] in special_variances['chat']):
+                    self.special_keys["chat"][0]=key
+                    self.special_keys["chat"][1]= remap[1]
+                    #Edge case: the other key in the list with chat is also a special key
 
+                    for k,v in special_variances.items():
+                        if k=='chat': continue
+                        if remap[0] in v:
+                            self.special_keys[k][0]=key
+                            self.special_keys[k][1]=remap[0]
+            elif isinstance(remap,str):
+                for k,v in special_variances.items():
+                    if remap in v:
+                        self.special_keys[k][0]=key
+                        self.special_keys[k][1]=remap
             elif not isinstance(remap,str):
                 raise TypeError(f"\nKEY SLOT [{key.upper()}] NEEDS TO ASSOCIATED WITH A KEY TYPE STRING, NOT [{remap}] ({type(remap)})!")
-                
 
         # self.fixed_keys.pop(self.chat)
-        if not has_shift and self.shift not in self.keys:
+        if self.special_keys['sft'][0] is None:
             raise ValueError(f"\nPLEASE MAP [SHIFT] KEY WITH A KEYSLOT IN {file_name} FILE FIRST!")
 
-        self._does_key_exist(self.chat, self.keys, file_name,'layout.txt')
-        if self.chat in self.fixed_keys[0]:
-            remap=self.fixed_keys[0][self.chat]
-            if (isinstance(remap,str) and remap==self.chat_name) or (isinstance(remap,list) and len(remap)==1 and self.chat_name==remap[0]):
-                self.fixed_keys[0].pop(self.chat)
+        if self.special_keys['chat'][0] is None:
+            raise ValueError(f"\nPLEASE MAP [CHAT] KEY WITH A KEYSLOT IN {file_name} FILE FIRST!")
+        else:
+
+            remap=self.fixed_keys[0][self.special_keys['chat'][0]]
+            if isinstance(remap,str) or (isinstance(remap,list) and len(remap)==1):
+                self.fixed_keys[0].pop(self.special_keys['chat'][0])
             elif isinstance(remap,list) and len(remap)>1:
-                self.fixed_keys[0][self.chat]=self.fixed_keys[0][self.chat][1 if remap[0]==self.chat_name else 0]
-
-
-        if not has_shift:
-            self.fixed_keys[0][self.shift]='lsft'
-
+                self.fixed_keys[0][self.chat]=self.fixed_keys[0][self.chat][1 if remap[0] in special_variances['chat'] else 0]
         
         #FOR SHIFT LAYER
 
@@ -233,9 +250,6 @@ class Layout:
             self._does_key_exist(key,self.keys,file_name,'layout.txt')
             if not isinstance(remap,str):
                 raise TypeError(f"\nKEY SLOT [{key.upper()}] IN {file_name} FILE NEEDS TO ASSOCIATED WITH A KEY TYPE STRING, NOT [{remap}] ({type(remap)})!")
-            # if key==self.shift:
-            #     if remap!=self.shift_name:
-            #         print(f"WARNING: KEY SLOT [{key.upper()}] ALREADY BINDED FOR SHIFT KEY, YOU CAN'T PUT [{remap.upper()}] THERE IN {file_name} FILE!")
 
     
     def _init_available_keys(self):
@@ -250,7 +264,7 @@ class Layout:
                     self._is_key_correct_type(key, file_name)
                     self._does_key_exist(key,self.keys, file_name, 'layout.txt')
 
-                    if key in self.fixed_keys[0] and key!=self.chat:
+                    if key in self.fixed_keys[0] and key!=self.special_keys['chat'][0]:
                         print(f"WARNING: Key [{key}] already in fixed_keys.json, skipping it!")
                         continue
 
@@ -267,17 +281,10 @@ class Layout:
                     if key in self.fixed_keys[1]:
                         print(f"WARNING: Key [{key}] already in fixed_shift_keys.json, skipping it!")
                         continue
-                    if key==self.shift or key==self.home or any(key==self.specials[k][0] for k in self.specials):
+                    if any(key==self.special_keys[k][0] for k in self.special_keys):
                         print(f"WARNING: Key [{key}] already in fixed_keys.json, skipping it!")
                         continue
                     self.remaps[1][key]=key
-
-        # print(self.remaps[0][self.chat])
-
-        assert self.remaps[0][self.chat]!=[self.chat_name,], "BUG!"
-        # if self.remaps[0][self.chat]==[self.chat_name,]:
-            # self.remaps[0].pop(self.chat)
-
 
         self.key2idx=[{},{}]
         self.sizes=[len(layer) for layer in self.remaps]
@@ -289,8 +296,6 @@ class Layout:
                 self.key2idx[i][key]=j
                 self.idx2key.append(key)
                 j+=1
-
-        
 
         self.layered_available_keys=[[j for key,j in layer.items() if key not in self.fixed_keys[i]] for i,layer in enumerate(self.key2idx)]
         self.available_keys=[key_idx for layer in self.layered_available_keys for key_idx in layer]
@@ -308,10 +313,11 @@ class Layout:
         #key: remap --> keyIdx: remap
         self.fixed_keys={self.key2idx[i][key]:remap for i,layer in enumerate(self.fixed_keys) for key, remap in layer.items()}
 
-        #encode self.chat, self.shift, self.home, self.backspace
-        self.chat_i=[self.key2idx[i][self.chat] for i,layer in enumerate(self.key2idx) if self.chat in self.key2idx[i]]
-        self.shift_i=[self.key2idx[i][self.shift] for i,layer in enumerate(self.key2idx) if self.shift in self.key2idx[i]]
-        self.home_i=[self.key2idx[i][self.home] for i,layer in enumerate(self.key2idx) if self.home in self.key2idx[i]] if self.home is not None else None
+        #encode self.specials' keys to indices
+        for i,layer in enumerate(self.key2idx):
+            for name in self.special_keys:
+                if self.special_keys[name][0] in layer:
+                    self.special_keys[name][0]=layer[self.special_keys[name][0]]
         # print(self.fixed_keys)
         # print(self.key2idx)
         # print(self.idx2key)
@@ -323,6 +329,17 @@ class Layout:
         self.idx2finger=[f"{hand}_{finger}" for hand, hand_idx in sorted(self.HAND_CODE.items(),key=lambda x: x[1]) for finger, finger_idx in sorted(self.FINGER_CODE.items(),key=lambda x: x[1])]
         self.finger2idx={finger: idx for idx, finger in enumerate(self.idx2finger)}
 
+    def _validate_keyspace(self):
+        """Ensure that available keys can accommodate the layer-specific keybinds."""
+
+        total_base_available = sum(1 for idx in self.available_keys if idx < self.sizes[0])
+        total_shift_available = sum(1 for idx in self.available_keys if idx >= self.sizes[0])
+
+        free_slots=total_base_available-len(self.available_ukb)-len(self.available_bkb)+total_shift_available-len(self.available_skb)-len(self.available_ukb)
+
+        assert free_slots>=0, f"\nYOU DON'T HAVE ENOUGH AVAILABLE KEYS FOR ALL THE KEYBINDS ({len(self.available_keys)}<{len(self.available_keybinds)})"
+
+
     def _init_keystrokes(self):
         self.keystrokes=[]
         self.total_weights=0
@@ -330,9 +347,10 @@ class Layout:
         check_required_config_file(file_name)
         missing_w_count=0
 
-        #special keys(eat the whole key and don't have shift counterparts)
-        self.special_keybinds=set()
-
+        #universal keys(eat the whole key and don't have shift counterparts)
+        self.universal_keybinds_set=set()
+        self.base_keybinds_set=set()
+        self.shift_keybinds_set=set()
 
         try:
             with open(f'config/{file_name}','r', encoding='utf-8') as file:
@@ -340,6 +358,8 @@ class Layout:
         except json.JSONDecodeError as e:
             print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
             raise SystemExit
+
+        
         for name, keystroke in keystrokes_dict.items():
             if isinstance(keystroke,list):
                 keystrokes_dict[name]={"keys":keystroke,}
@@ -353,12 +373,66 @@ class Layout:
                 self.total_weights+=keystroke["weight"]
             else: missing_w_count+=1
 
-            if "shift_safe" in keystroke and keystroke["shift_safe"]:
-                for key in keystroke["keys"]:
-                    self.special_keybinds.add(key)
+
+        #second pass of finding the variance of special keys, if not use the default ones
+        #it is crucial to find the special keys first before finding the layer of each keybind, because some keybinds are universal and we don't know the name.
+        special_variances={
+            'bspc':{'bspc','backspace','bs','<'},
+            'spc':{'sp','space','spc','_'},
+            'sft': {'sft','lsft','shift','rsft','lshift', 'rshift'},
+            'chat': {'chat'},
+            'home': {'home', 'hm'},
+        }
+        for key in special_variances:
+            for name, keystroke in keystrokes_dict.items():
+                for i, k in enumerate(keystroke["keys"]):
+                    if k in special_variances[key]:
+                        if self.special_keys[key][1]!=k:
+                            print(f"WARNING: Key [{k.upper()}] for [{name.upper()}] in keystrokes.json file is different from the one in fixed_keys.json file [{self.special_keys[key][1].upper()}]! Setted it to [{self.special_keys[key][1].upper()}].")
+                            keystrokes_dict[name]["keys"][i]=self.special_keys[key][1]
+                        else:
+                            self.special_keys[key][1]=k
+        self.universal_keybinds_set|={self.special_keys['bspc'][1],self.special_keys['spc'][1],self.special_keys['home'][1],self.special_keys['sft'][1]}
+
+        for name, keystroke in keystrokes_dict.items():
+            if "layer" in keystroke:
+                match keystroke["layer"]:
+                    case "both":
+                        for key in keystroke["keys"]:
+                            if key in self.base_keybinds_set:
+                                print(f"WARNING: Key [{key.upper()}] for [{name.upper()}] in keystrokes.json file was a base layer keybind, but trying to be both. Setted it to both layer keybind.")
+                            elif key in self.shift_keybinds_set:
+                                print(f"WARNING: Key [{key.upper()}] for [{name.upper()}] in keystrokes.json file was a shift layer keybind, but trying to be both. Setted it to both layer keybind.")
+                            
+                            self.universal_keybinds_set.add(key)
+
+                    case "base":
+                        for key in keystroke["keys"]:
+                            if key in self.shift_keybinds_set:
+                                print(f"WARNING: Key [{key.upper()}] for [{name.upper()}] in keystrokes.json file was a shift layer keybind, but trying to be base. Setted it to both layer keybind.")
+                                self.universal_keybinds_set.add(key)
+                                self.shift_keybinds_set.discard(key)
+                            elif key in self.universal_keybinds_set:
+                                print(f"WARNING: Key [{key.upper()}] for [{name.upper()}] in keystrokes.json file is a universal keybind, but trying to be base. Skipping it.")
+                            else:
+                                self.base_keybinds_set.add(key)
+                    case "shift":
+                        for key in keystroke["keys"]:
+                            if key in self.base_keybinds_set:
+                                print(f"WARNING: Key [{key.upper()}] for [{name.upper()}] in keystrokes.json file was a base layer keybind, but trying to be shift. Setted it to both layer keybind.")
+                                self.universal_keybinds_set.add(key)
+                                self.base_keybinds_set.discard(key)
+                            elif key in self.universal_keybinds_set:
+                                print(f"WARNING: Key [{key.upper()}] for [{name.upper()}] in keystrokes.json file is a universal keybind, but trying to be shift. Skipping it.")
+                            else:
+                                self.shift_keybinds_set.add(key)
+                    case _:
+                        pass
+                        #acting for any like default
 
             # self.keystrokes=list(keystrokes_dict.values())
 
+        
         average_w=self.total_weights/(len(keystrokes_dict)-missing_w_count)
         self.total_weights+=missing_w_count*average_w
         self.keystrokes=[]
@@ -369,8 +443,12 @@ class Layout:
 
             self.keystrokes.append({"keys":keystroke["keys"],"weight":keystroke["weight"]})
 
+
+                
+                        
+
         #make 2 version of each keystoke: normal version and start with shift home version
-        self.keystrokes+=[{"keys": [self.shift_name,self.home_name]+keys_n_weight["keys"],"weight":keys_n_weight["weight"]/2} for keys_n_weight in self.keystrokes]
+        self.keystrokes+=[{"keys": [self.special_keys['sft'][1], self.special_keys['home'][1]]+keys_n_weight["keys"],"weight":keys_n_weight["weight"]/2} for keys_n_weight in self.keystrokes]
         self.total_weights*=1.5
 
         #normalize weight
@@ -379,52 +457,38 @@ class Layout:
 
         # print(self.keystrokes)
         #add home, lsft, chat for safety
-        self.keybinds=sorted({key for data in self.keystrokes for key in data['keys']}.union({self.home_name,self.shift_name,self.chat_name}))
+        self.keybinds=sorted({key for data in self.keystrokes for key in data['keys']}.union({self.special_keys['home'][1],self.special_keys['sft'][1],self.special_keys['chat'][1]}))
         # print(self.keybinds)
         self.keybind2idx={keybind: i for i,keybind in enumerate(self.keybinds)}
 
-        self.available_keybinds=[i for i, key in enumerate(self.keybinds) if key not in self.fixed_keys.values() and key!=self.chat_name]
+        self.available_keybinds=[i for i, key in enumerate(self.keybinds) if key not in self.fixed_keys.values() and key!=self.special_keys['chat'][1]]
 
-        if len(self.available_keys)<len(self.available_keybinds):
-            raise ValueError(f"\nYOU DON'T HAVE ENOUGH AVAILABLE KEYS FOR ALL THE KEYBINDS ({len(self.available_keys)}<{len(self.available_keybinds)})")
 
-        #encode for home and backspace
-        self.shift_kbi=self.keybind2idx[self.shift_name]
-        
-        self.home_kbi=self.keybind2idx[self.home_name]
-
-        for k in self.specials.keys():
-            if self.specials[k][1] in self.keybind2idx:
-                self.specials[k][2]=self.keybind2idx[self.specials[k][1]]
-        
         #special keys
-        self.special_keybinds=[self.keybind2idx[key] for key in self.special_keybinds]
-        self.available_skb=[kb_idx for kb_idx in self.special_keybinds if kb_idx not in self.fixed_keys.values()]
-        self.no_shift_variance_skb_set=set(self.special_keybinds)
-        self.no_shift_variance_skb_set.discard(self.shift_kbi) #pop shift
+        # self.special_keybinds=[]
+        for k in self.special_keys:
+            if self.special_keys[k][1] in self.keybind2idx:
+                self.special_keys[k][2]=self.keybind2idx[self.special_keys[k][1]]
+                # self.special_keybinds.append(self.special_keys[k][1])
+        self.universal_keybinds=[self.keybind2idx[keybind] for keybind in self.universal_keybinds_set]
+        self.universal_keybinds_set=set(self.universal_keybinds)
+        self.available_ukb=[kb_idx for kb_idx in self.universal_keybinds if kb_idx in set(self.available_keybinds)]
+        self.base_keybinds=[self.keybind2idx[keybind] for keybind in self.base_keybinds_set]
+        self.base_keybinds_set=set(self.base_keybinds)
+        self.available_bkb=[kb_idx for kb_idx in self.base_keybinds if kb_idx in set(self.available_keybinds)]
+        self.shift_keybinds=[self.keybind2idx[keybind] for keybind in self.shift_keybinds_set]
+        self.shift_keybinds_set=set(self.shift_keybinds)
+        self.available_skb=[kb_idx for kb_idx in self.shift_keybinds if kb_idx in set(self.available_keybinds)]
 
-        self.special_keybinds.append(self.home_kbi)
-        if self.home_i is None:
-            self.available_skb.append(self.home_kbi)
-        for k in self.specials:
-            if self.specials[k][2] is not None:
-                kb=self.specials[k][2]
-                self.special_keybinds.append(kb)
-                self.no_shift_variance_skb_set.add(kb)
-                if self.specials[k][0] is None:
-                    self.available_skb.append(kb)
-        #special set
-        self.special_kb_set=set(self.special_keybinds)
-        self.available_skb_set=set(self.available_skb)
-        # raise ValueError()
-
+        #verify that the available keys can accommodate the layer-specific keybinds
+        self._validate_keyspace()
 
         #frequency of keys
         freq=[0]*len(self.keybinds)
         self.total_keybinds=0
         for data in self.keystrokes:
             for key in data['keys']:
-                if key==self.shift_name: #skip shift
+                if key==self.special_keys['sft'][1]: #skip shift
                     continue
                 freq[self.keybind2idx[key]]+=data['weight']
                 self.total_keybinds+=data['weight']
@@ -437,7 +501,7 @@ class Layout:
 
         # freq[self.keybind2idx[self.chat_name]]+=len(self.keystrokes)*self.total_weights/len(self.keystrokes)
         #Chat probability
-        freq[self.keybind2idx[self.chat_name]]+=average_w/self.total_weights*len(self.keystrokes)
+        freq[self.keybind2idx[self.special_keys['chat'][1]]]+=average_w/self.total_weights*len(self.keystrokes)
         self.total_keybinds+=average_w/self.total_weights*len(self.keystrokes)
         #Shift probability compute when evalutate
         
@@ -730,8 +794,8 @@ if __name__=="__main__":
     l=Layout()
     
     print("Layout:",list(l.keys.keys()))
-    print("Shift key:", l.shift,l.shift_name)
-    print("Chat key:",l.chat)
+    print("Shift key:", l.special_keys['sft'][0],l.special_keys['sft'][1])
+    print("Chat key:",l.special_keys['chat'][0])
     print("Fixed keys (Multiple layers):",[(l.idx2key[key],l.keybinds[remap]) for key, remap in l.fixed_keys.items()])
     print("Remaps:", [[(key,remap) for key,remap in layer.items()] for layer in l.remaps])
     print("Available keys:", [l.idx2key[key] for key in l.available_keys])
@@ -739,7 +803,9 @@ if __name__=="__main__":
     print("Keystrokes:", [[l.keybinds[key] for key in keystroke[0]]for keystroke in l.keystrokes])
     print("Available keybinds:", [l.keybinds[key] for key in l.available_keybinds])
     print("Keybind probability:", [(l.keybinds[i],round(prob,2)) for i,prob in enumerate(l.key_probs)])
-    print("Special keybinds:", [l.keybinds[key] for key in l.special_keybinds])
-    print("Available special keybinds:", [l.keybinds[key] for key in l.available_skb])
+    print("Universal keybinds:", [l.keybinds[key] for key in l.universal_keybinds])
+    print("Base keybinds:", [l.keybinds[key] for key in l.base_keybinds])
+    print("Shift keybinds:", [l.keybinds[key] for key in l.shift_keybinds])
+    # print("Available special keybinds:", [l.keybinds[key] for key in l.available_skb])
     # print("Assiged finger:")
     #TODO: continue

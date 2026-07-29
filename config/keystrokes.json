@@ -1,52 +1,62 @@
 {
   "iron_pickaxe": {
     "keys": ["i", "m", "spc", "s"],
-    "weight": 4
+    "weight": 4,
+    "layer": "any"
   },
   "gold_pickaxe": {
     "keys": ["i", "m", "spc", "v"],
-    "weight": 6
+    "weight": 6,
+    "layer": "any"
   },
   "tripwire_n_crossbow": {
     "keys": ["ó","bspc", "n", "ỏ"],
-    "weight": 1
+    "weight": 1,
+    "layer": "any"
   },
   "glowstone": {
     "keys": ["h", "á"],
-    "weight": 5
+    "weight": 5,
+    "layer": "any"
   },
   "nether_brick": {
     "keys": ["h", "e"],
-    "weight": 5
+    "weight": 5,
+    "layer": "any"
   },
   "bed_n_anchor": {
     "keys": ["i", "ư","bspc", "n"],
     "weight": 10,
-    "shift_safe": true
+    "layer": "both"
   },
   "stick": {
     "keys": ["g", "ậ"],
-    "weight": 4
+    "weight": 4,
+    "layer": "shift"
   },
   "bow": {
     "keys": ["c", "u", "n"],
     "weight": 5,
-    "shift_safe": true
+    "layer": "both"
   },
   "blaze_powder_n_ender_eye": {
     "keys": ["spc", "q","bspc", "e"],
-    "weight": 5
+    "weight": 5,
+    "layer": "any"
   },
   "iron_ingot_n_iron_axe": {
     "keys": ["ô", "i", "lsft", "home", "+", "8"],
-    "weight": 4
+    "weight": 4,
+    "layer": "base"
   },
   "iron_axe": {
     "keys": ["+", "8"],
-    "weight": 2
+    "weight": 2,
+    "layer": "shift"
   },
   "ingots":{
     "keys": ["ô", "i"],
-    "weight": 1
+    "weight": 1,
+    "layer": "any"
   }
 }

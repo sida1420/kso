@@ -141,14 +141,14 @@ def run():
 
             range_changed = False
 
-            # ─── Selection (sequential, cheap) ─────────────────────────────────
+            # ─── Selection ─────────────────────────────────
             replicas, evaluations, scores, elites, jump_accept, better_jumps = \
                 selection.selection(temperatures, replicas, evaluations, scores,
                                     candidates, candidate_evaluations, candidate_scores,
                                     elites, num_elites, paras.population_size,
                                     generation_count)
 
-            # ─── Replica swaps (──────────────────────────────────────────────────
+            # ─── Replica swaps ──────────────────────────────────────────────────
             if generation_count % n_swaps == 0:
                 replicas, evaluations, scores, swap_accept = \
                     mutation.swap_replicas(temperatures, replicas, evaluations,

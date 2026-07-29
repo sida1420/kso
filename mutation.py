@@ -10,9 +10,12 @@ class Mutator:
         self.max_attempts=10
         self.n=len(layout.idx2key)
         self.fixed_keys=layout.fixed_keys
-        self.special_set=layout.available_skb_set
+        self.universal_keybinds_set=layout.universal_keybinds_set
+        self.base_keybinds_set=layout.base_keybinds_set
+        self.shift_keybinds_set=layout.shift_keybinds_set
         self.base_end=layout.sizes[0]
         self.valid_indices=layout.available_keys
+        self.counterparts=layout.counterparts
     
     def CASH_pick(self):
         r=random.random()*self.layout.cum_avai_strain_heapmap[-1]
@@ -25,15 +28,15 @@ class Mutator:
         if len(self.valid_indices) < 2:
             return new_ind
 
-        # Build once: (special_position, counterpart_position) for current individual.
-        special_cps ={}
-        special_cps_inverse={}
-        for kbi in range(self.base_end):
-            if new_ind[kbi] in self.special_set:
-                cp = self.layout.counterparts[kbi]
+        # Build once: (universal_position, counterpart_position) for current individual.
+        universal_cps ={}
+        universal_cps_inverse={}
+        for key_index in range(self.base_end):
+            if new_ind[key_index] in self.universal_keybinds_set:
+                cp = self.layout.counterparts[key_index]
                 if cp is not None:
-                    special_cps[kbi]= cp
-                    special_cps_inverse[cp]=kbi
+                    universal_cps[key_index]= cp
+                    universal_cps_inverse[cp]=key_index
 
         for i in self.valid_indices:
             if random.random() > threshold:
@@ -50,41 +53,42 @@ class Mutator:
                     continue
                 
 
-                ok = True
                 si=False #i turns to special
                 sj=False #j turns to special
                 #bad slot
-                if i in special_cps_inverse or j in special_cps_inverse:
-                    ok=False
+                if i in universal_cps_inverse or j in universal_cps_inverse:
+                    continue
 
-                    #special changes
-                cpj=self.layout.counterparts[j]
-                cpi=self.layout.counterparts[i]
+                #special changes
+                cpi=self.counterparts[i]
+                cpj=self.counterparts[j]
 
-                if i<self.base_end and kbi in self.special_set:
-                    if j>=self.base_end or (j<self.base_end and cpj is not None and new_ind[cpj] is not None):
-                        ok=False
-                    elif i in special_cps:
-                        special_cps_inverse.pop(special_cps[i])
-                        special_cps.pop(i)
+                if (kbi in self.base_keybinds_set and j>=self.base_end) or (kbj in self.base_keybinds_set and i>=self.base_end):
+                    continue
+                if (kbi in self.shift_keybinds_set and j<self.base_end) or (kbj in self.shift_keybinds_set and i<self.base_end):
+                    continue
+                if i<self.base_end and kbi in self.universal_keybinds_set:
+                    if (j>=self.base_end or (j<self.base_end and cpj is not None and new_ind[cpj] is not None)):
+                        continue
+                    if i in universal_cps:
+                        universal_cps_inverse.pop(universal_cps[i])
+                        universal_cps.pop(i)
                     sj=True
-                if j<self.base_end and kbj in self.special_set:
+                if j<self.base_end and kbj in self.universal_keybinds_set:
                     if i>=self.base_end or (i<self.base_end and cpi is not None and new_ind[cpi] is not None):
-                        ok=False
-                    elif j in special_cps:
-                        special_cps_inverse.pop(special_cps[j])
-                        special_cps.pop(j)
+                        continue
+                    elif j in universal_cps:
+                        universal_cps_inverse.pop(universal_cps[j])
+                        universal_cps.pop(j)
                     si=True
-
-                if not ok: continue
 
                 new_ind[i], new_ind[j] = kbj, kbi
                 if si and cpi is not None:
-                    special_cps[i]=cpi
-                    special_cps_inverse[cpi]=i
+                    universal_cps[i]=cpi
+                    universal_cps_inverse[cpi]=i
                 if sj and cpj is not None:
-                    special_cps[j]=cpj
-                    special_cps_inverse[cpj]=j
+                    universal_cps[j]=cpj
+                    universal_cps_inverse[cpj]=j
 
                 break
 
@@ -94,7 +98,7 @@ class Mutator:
         new_ind=ind[:]
         for i in range(self.base_end):
             cp=self.layout.counterparts[i]
-            if random.random()>threshold or i in self.fixed_keys or cp is None or cp in self.fixed_keys or new_ind[i] in self.special_set:
+            if random.random()>threshold or i in self.fixed_keys or cp is None or cp in self.fixed_keys or new_ind[i] in self.universal_keybinds_set or new_ind[i] in self.base_keybinds_set or new_ind[cp] in self.shift_keybinds_set:
                 continue
             
             new_ind[i], new_ind[cp]=new_ind[cp], new_ind[i]
@@ -103,12 +107,9 @@ class Mutator:
     def physical_key_swap(self, ind: list, threshold: float):
         new_ind=ind[:]
 
-        special_s=layout.special_kb_set
+        
         #TODO
 
-
-    def keystroke_swap(self, ind): #I don't think this is possible
-        pass
 
 
     def mutate(self,ind, T):
@@ -147,12 +148,13 @@ def swap_replicas(temperatures, replicas, evaluations, scores, generation_count)
 
 if __name__ == "__main__":
     import init
-    from evaluate import correct
+    # from evaluate import correct
     layout=Layout()
     init_layout=init.distributed_init(layout)
-    m=Mutation(layout)
-    while correct(init_layout, layout):
-        print("hello")
-        init_layout=m.layer_swap(init_layout,0.1)
+    m=Mutator(layout)
+    # while correct(init_layout, layout):
+        # print("hello")
+    layout.display(init_layout,name="Initial Layout")
+    init_layout=m.binary_swap(init_layout,0.1)
     print(init_layout)
-    layout.display(init_layout)
+    layout.display(init_layout,name="After Binary Swap")

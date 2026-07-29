@@ -11,19 +11,22 @@ class Evaluator:
         self.key_probs=layout.key_probs
         self.home_keys=layout.home_keys
         self.key_idx2finger_idx=layout.key_idx2finger_idx
-        self.chat_i=layout.chat_i
+        self.chat_i=layout.special_keys['chat'][0]
         self.hand=layout.hand
         self.sizes=layout.sizes
-        self.shift_kbi=layout.shift_kbi
-        self.no_shift_variance_skb_set=layout.no_shift_variance_skb_set
+        self.shift_kbi=layout.special_keys['sft'][2]
+        
         self.keystrokes=layout.keystrokes
         self.total_keybinds=layout.total_keybinds
-        self.special_keybinds=layout.special_keybinds
+        self.universal_keybinds=layout.universal_keybinds
+        self.universal_keybinds_set=layout.universal_keybinds_set
+        self.base_keybinds_set=layout.base_keybinds_set
+        self.shift_keybinds_set=layout.shift_keybinds_set
         self.counterparts=layout.counterparts
         self.available_keybinds=layout.available_keybinds
         self.fixed_keys=layout.fixed_keys
         self.strain_heapmap=layout.strain_heapmap
-        self.shift_i=layout.shift_i
+        self.shift_i=layout.special_keys['sft'][0]
         self.keys=layout.keys
         self.finger_natural_pos=layout.finger_natural_pos
         self.finger_dists=layout.finger_dists
@@ -66,14 +69,14 @@ class Evaluator:
         self.initial_FS_total=0
         #finger_tasks only have 1 value for key_idx, not the time and count, since it's only used for initialization
         #assume 1 finger is pressing chat
-        temp_key=self.home_keys[self.key_idx2finger_idx[self.chat_i[0]]] #store the original key idx for the finger that presses chat
-        self.home_keys[self.key_idx2finger_idx[self.chat_i[0]]]=self.chat_i[0]
+        temp_key=self.home_keys[self.key_idx2finger_idx[self.chat_i]] #store the original key idx for the finger that presses chat
+        self.home_keys[self.key_idx2finger_idx[self.chat_i]]=self.chat_i
 
 
         for hand_code in [0,1]:
             self.initial_FS_total+=self.FS_full(self.home_keys, self.hand[hand_code], hand_code, self.initial_FS_cache)
 
-        self.home_keys[self.key_idx2finger_idx[self.chat_i[0]]]=temp_key #revert back
+        self.home_keys[self.key_idx2finger_idx[self.chat_i]]=temp_key #revert back
 
     def normalize_keystrokes(self, ind: list):
         shift_s=set(ind[i] for i in range(self.sizes[0],self.sizes[0]+self.sizes[1]))
@@ -101,7 +104,7 @@ class Evaluator:
                         shift_w+=weight
                         shift=True
                     shift_intended=False
-                elif not(shift and kb_idx in self.no_shift_variance_skb_set and i<len(keystroke)-1 and (keystroke[i+1] in shift_s or keystroke[i+1]==self.shift_kbi)):
+                elif not(shift and kb_idx in self.universal_keybinds_set and i<len(keystroke)-1 and (keystroke[i+1] in shift_s or keystroke[i+1]==self.shift_kbi)):
                     if shift:
                         nkeystroke.append(self.shift_kbi) #if you are shifting are seeing shift, which mean come back to base layer
                         shift_durations.append(0)
@@ -134,19 +137,32 @@ class Evaluator:
         #unique #2
         s=set()
 
-        for j,i in enumerate(ind):
-            if i is not None:
-                if i in s:
-                    return False, 2
-                s.add(i)
-                if i in self.special_keybinds:
-                    if j>=self.sizes[0]:
-                        return False, 0
-                    if self.counterparts[j] is not None and ind[self.counterparts[j]] is not None:
-                        return False, 0
+        problems=set()
+
+        for i,j in enumerate(ind):
+            if j is None:
+                continue    
+            
+            if j in s:
+                problems.add(f"DUPLICATE KEYBINDS [{self.keybinds[j].upper()}] #2")
+            
+            s.add(j)
+            
+            if j in self.universal_keybinds_set:
+                if i>=self.sizes[0]:
+                    problems.add(f"UNIVERSAL KEYBIND [{self.keybinds[j].upper()}] DOES NOT OCCUPY BOTH LAYERS #0")
+                cp=self.counterparts[i]
+                if cp is not None and ind[cp] is not None:
+                    problems.add(f"UNIVERSAL KEYBIND [{self.keybinds[j].upper()}] DOES NOT OCCUPY BOTH LAYERS #0")
+            elif j in self.base_keybinds_set:
+                if i>=self.sizes[0]:
+                    problems.add(f"BASE KEYBIND [{self.keybinds[j].upper()}] IS IN SHIFT LAYER #0")
+            elif j in self.shift_keybinds_set:
+                if i<self.sizes[0]:
+                    problems.add(f"SHIFT KEYBIND [{self.keybinds[j].upper()}] IS IN BASE LAYER #0")
         if  len(s)!=len(self.available_keybinds)+len(set(self.fixed_keys.values())):
-            return False, 1
-        return True, -1
+            problems.add(f"NUMBER OF KEYBINDS IN LAYOUT IS NOT EQUAL TO NUMBER OF AVAILABLE KEYBIND [{len(s)}!={len(self.available_keybinds)+len(set(self.fixed_keys.values()))}]#1")
+        return len(problems)==0, problems
 
     def finger_strain(self, ind, nkey_probs):
         res = 0
@@ -154,13 +170,13 @@ class Evaluator:
         for i, j in enumerate(ind):
             if j is None:
                 continue
-            if self.sizes[0] <=i and i!=self.shift_i[0]:
+            if self.sizes[0] <=i and i!=self.shift_i:
                 total_shift_hold_prob+=nkey_probs[j]
 
             res += self.strain_heapmap[i]* nkey_probs[j] 
 
         #add bonus for shift
-        res+=self.strain_heapmap[self.shift_i[0]]*total_shift_hold_prob*self.SHIFT_HOLDING_STRAIN_COEFF
+        res+=self.strain_heapmap[self.shift_i]*total_shift_hold_prob*self.SHIFT_HOLDING_STRAIN_COEFF
 
         return res
 
@@ -264,7 +280,7 @@ class Evaluator:
             finger_tasks={finger_idx:[key_idx,0,0] for finger_idx, key_idx in self.home_keys.items()}
 
             #assume 1 finger is pressing chat
-            finger_tasks[self.key_idx2finger_idx[self.chat_i[0]]][0]=self.chat_i[0]
+            finger_tasks[self.key_idx2finger_idx[self.chat_i]][0]=self.chat_i
 
             #init 3 local costs
             local_travel_distance=0
@@ -274,7 +290,7 @@ class Evaluator:
             #inititize for roll
             roll_state=-1
             consecutive_roll=0
-            prev_hand_code, prev_finger_code=self.finger_rolls[self.key_idx2finger_idx[self.chat_i[0]]]
+            prev_hand_code, prev_finger_code=self.finger_rolls[self.key_idx2finger_idx[self.chat_i]]
 
             FS_cache=[dict(self.initial_FS_cache[0]),dict(self.initial_FS_cache[1])] #cache for FS calculation, index by hand code, key is (finger_i, finger_j) with finger code as index system, value is the FS cost between the two fingers
             current_FS_total=self.initial_FS_total
@@ -287,7 +303,7 @@ class Evaluator:
                 key_idx=keybind_idx2key_idx[keybind_idx]
                 press_finger=self.key_idx2finger_idx[key_idx]
 
-                if key_idx==self.shift_i[0]: #shift action
+                if key_idx==self.shift_i: #shift action
                     if pressing_shift is None: #Start pressing shift
                         pressing_shift=press_finger
                     else: #Stop pressing shift
@@ -472,14 +488,9 @@ if __name__ == '__main__':
     evaluator=Evaluator(layout)
 
 
-    correct, case=evaluator.correct(ind)
+    correct, problems=evaluator.correct(ind)
     if not correct:
-        if case==0:
-            raise ValueError(f"\nYOUR LAYOUT IN {file_name} FILE VIOLATES ANY OF THESE CONSTRAINTS: SHIFT SAFE, SPECIAL IN SHIFT!")
-        if case==1:
-            raise ValueError(f"\nYOUR LAYOUT IN {file_name} FILE DOESN'T HAVE ENOUGH KEYS/HAS REDUNDANT KEYS DECLARED IN keystrokes.json FILE!")
-        if case==2:
-            raise ValueError(f"\nYOUR LAYOUT IN {file_name} FILE HAS DUPLICATE KEYS")
+        raise ValueError("\n".join(problems))
     print("EXPECTED CRAFTS:")
     keystrokes=evaluator.normalize_keystrokes(ind)[0]
     for keystroke,_ in keystrokes:

@@ -20,6 +20,8 @@ class Evaluator:
         self.total_keybinds=layout.total_keybinds
         self.universal_keybinds=layout.universal_keybinds
         self.universal_keybinds_set=layout.universal_keybinds_set
+        self.no_shift_universal_keybinds_set=self.universal_keybinds_set
+        self.no_shift_universal_keybinds_set.discard(layout.special_keys['sft'][2])
         self.base_keybinds_set=layout.base_keybinds_set
         self.shift_keybinds_set=layout.shift_keybinds_set
         self.counterparts=layout.counterparts
@@ -104,7 +106,7 @@ class Evaluator:
                         shift_w+=weight
                         shift=True
                     shift_intended=False
-                elif not(shift and kb_idx in self.universal_keybinds_set and i<len(keystroke)-1 and (keystroke[i+1] in shift_s or keystroke[i+1]==self.shift_kbi)):
+                elif not(shift and kb_idx in self.no_shift_universal_keybinds_set and i<len(keystroke)-1 and (keystroke[i+1] in shift_s or keystroke[i+1]==self.shift_kbi)):
                     if shift:
                         nkeystroke.append(self.shift_kbi) #if you are shifting are seeing shift, which mean come back to base layer
                         shift_durations.append(0)

@@ -159,11 +159,6 @@ class ConfigModel(Validator):
             temp_keystrokes[name]=values
 
         write_json("keystrokes.json", temp_keystrokes)
-
-
-
-
-    
     
     def add_key(self):
         return self.organizer.new_key()
@@ -176,8 +171,18 @@ class ConfigModel(Validator):
     
 
 class KeyboardCanvas(tk.Canvas):
-    FINGER_PALETTE = ["#f1fa8c", "#8be9fd", "#ff79c6", "#bd93f9", "#50fa7b", "#ff5555", "#ffb86c", "#70c0ff"]
-
+    FINGER_PALETTE = (
+        "#a85a5a",  # 0  muted red
+        "#b8a030",  # 1  dark gold
+        "#5a9e5a",  # 2  muted green
+        "#4a9e9e",  # 3  muted cyan
+        "#5a7a9e",  # 4  muted blue
+        "#9e5a8e",  # 5  muted magenta
+        "#9e7a4a",  # 6  muted orange
+        "#8a9e5a",  # 7  muted olive
+        "#4a9e7a",  # 8  muted sea green
+        "#7a5a9e",  # 9  muted purple
+    )
     def __init__(self, parent, model: ConfigModel, mode="layout", **kwargs):
         super().__init__(parent, bg="#181a1f", highlightthickness=0, **kwargs)
         self.model=model
@@ -404,9 +409,8 @@ class KeyboardCanvas(tk.Canvas):
                 break
 
         if swap_target is not None:
-            temp_pos=key._pos
             key.set_pos(swap_target._pos)
-            swap_target.set_pos(temp_pos)
+            swap_target.set_pos(self.original_pos)
         elif block:
             key.set_pos(self.original_pos)
 
@@ -665,7 +669,7 @@ class GUI(tk.Tk):
         
         legend = ttk.Labelframe(editor, text="Colors")
         legend.pack(fill="x", padx=6, pady=(8, 4))
-        for idx, finger in enumerate(sorted(self.model.assigned_fingers.keys())):
+        for idx, finger in enumerate(self.model.assigned_fingers.keys()):
             color = KeyboardCanvas.FINGER_PALETTE[idx % len(KeyboardCanvas.FINGER_PALETTE)]
             row = ttk.Frame(legend)
             row.pack(fill="x", padx=4, pady=1)

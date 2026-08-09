@@ -1,27 +1,12 @@
 
-import importlib.util
-import subprocess
-import sys
-from types import SimpleNamespace
-def install(package_to_install):
-    if importlib.util.find_spec(package_to_install) is None:
-        print(f"WARNING: {package_to_install} not found. Installing... this may take a while.")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package_to_install])
 
-install("matplotlib")
-install("numpy")
-
-import json
+from helper import *
 import math
 from pathlib import Path
 import shutil
 import matplotlib.pyplot as plt 
 import matplotlib.patches as patches
 
-def distance_sq(pos1, pos2): #special distance
-    x=(pos1.x-pos2.x)*1.25
-    y=pos1.y-pos2.y
-    return x**2+y**2
 
 class Point:
     __slots__ = ['x', 'y']
@@ -69,25 +54,229 @@ class Point:
     
 
 class Key:
-    def __init__(self, lx, uy, width=1, offset=0):
+    def __init__(self, lx: float, uy: float, width:float=1,height:float=1, offset:float=0):
         self._pos=Point(lx,uy)
         self._width=width
+        self._height=height
         self._offset=offset
-        self.fpos=self._pos+Point(self._width/2+self._offset,0.5)
+    
+        self.fpos=self._pos+Point(self._width/2+self._offset,self._height/2)
 
-def check_config_file(name):
-    a=Path(f"config/{name}")
+    def set_pos(self, new_pos: Point):
+        self._pos=new_pos
+        self.fpos=self._pos+Point(self._width/2+self._offset,self._height/2)
 
-    return a.exists()
-
-def check_required_config_file(name):
-    assert check_config_file(name), f"\aREQUIRED FILE {name.upper()} IN CONFIG FOLDER IN ORDER TO RUN THIS SCRIPT!"
-
-class Layout:
+class Validator:
     def __init__(self):
+        self._init_finger()
+    def _init_finger(self):
+        self.FINGER_CODE={'pinky':0,'ring':1,'middle':2,'index':3,'thumb':4} #DO NOT TOUCH
+        self.HAND_CODE={'left':0,'right':1} #DO NOT TOUCH
+
+        self.idx2finger=[f"{hand}_{finger}" for hand, hand_idx in sorted(self.HAND_CODE.items(),key=lambda x: x[1]) for finger, finger_idx in sorted(self.FINGER_CODE.items(),key=lambda x: x[1])]
+        self.finger2idx={finger: idx for idx, finger in enumerate(self.idx2finger)}
+    def _does_key_exist(self,key: str, container: dict, file, root_file):
+        if key not in container:
+            raise ValueError(f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN {file} FILE DOESN'T APPEAR IN {root_file} FILE!")
+        return True
+
+    def _is_key_correct_type(self,key: str, file):
+        if not isinstance(key,str):
+            raise TypeError(f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN {file} FILE HAS INCORRECT TYPE, IT NEEDS TO BE STRING NOT ({type(key)})!")
+        return True
+    def _validate_finger(self, finger, file):
+        if finger not in self.finger2idx:
+            raise ValueError(f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN {file} FILE IS INVALID!")
+        return True
+
+class LayoutOrganizer(Validator):
+    def __init__(self):
+        super().__init__()
+        self.left_most_x=0
+        self.left_most_y=0
+
+        self.potential_x=0
+        self.previous_y=0
+
+        self.lowest_y=0 #for culling
+
+        self.keys={}
+        self.cache=[]
+    def cull_cache(self):
+        self.cache=[k for k in self.cache if self.keys[k]._pos.y+self.keys[k]._height>=self.lowest_y]
+
+    def load_layout(self, layout, custom_keys={}):
+
+        x_in="x" in custom_keys
+        y_in="y" in custom_keys
+        width_in="width" in custom_keys
+        height_in="height" in custom_keys
+        offset_in="offset" in custom_keys
+        for line in layout:
+            new_line=True
+            for key in line:
+                self._is_key_correct_type(key, "layout.txt")
+                x=None
+                y=None
+                w=h=1
+                offset=0
+                if x_in and key in custom_keys["x"]:
+                    x=custom_keys["x"][key]
+                if y_in and key in custom_keys["y"]:
+                    y=custom_keys["y"][key]
+                if width_in and key in custom_keys["width"]:
+                    w=custom_keys["width"][key]
+                if height_in and key in custom_keys["height"]:
+                    h=custom_keys["height"][key]
+                if offset_in and key in custom_keys["offset"]:
+                    offset=custom_keys["offset"][key]
+                
+                self.add_key(key,x,y,w,h,offset,new_line)
+                if new_line: new_line=False
+    def add_key(self, name, x=None, y=None, width=1, height=1, offset=0, new_line=False):
+
+        if new_line:
+            self.potential_x=self.left_most_x
+        if x is None: x=self.potential_x
+        if y is None: y=self.left_most_y if new_line else self.previous_y
+
+        #Snap with border
+        if x<self.left_most_x:
+            x=self.left_most_x
+        if y<self.left_most_y:
+            y=self.left_most_y
+
+
+        #Snap with other keys
+        for k in self.cache:
+            key=self.keys[k]
+
+            if y<key._pos.y+key._height and x<key._pos.x+key._width:
+                if new_line:
+                    y=key._pos.y+key._height
+                else: x=key._pos.x+key._width
+
+            
+        self.potential_x=x+width
+        self.previous_y=y
+        if new_line:
+
+            self.cull_cache()
+
+            self.lowest_y=y+height
+        else:
+            self.lowest_y=min(self.lowest_y,y+height)
+
+        
+        self.keys[name]=Key(x,y,width,height,offset)
+        self.cache.append(name)
+
+
+class AdvLayoutOrganizer(LayoutOrganizer):
+    def __init__(self):
+        super().__init__()
+    def new_key(self):
+        n=len(self.keys)
+        name=f"key_{n}"
+        while name in self.keys:
+            n+=1
+            name=f"key_{n}"
+
+        x=self.left_most_x
+        y=self.left_most_y
+        for key in self.keys.values():
+            if key._pos.y==y:
+                x=max(x,key._pos.x+key._width)
+            elif key._pos.y>y:
+                y=key._pos.y
+                x=key._pos.x+key._width
+
+
+        self.keys[name]=Key(x,y)
+        return name
+
+    def remove_key(self, name):
+        self.keys.pop(name)
+
+
+    def save(self, save_layout=True, save_custom_keys=True, available_keys_set=None, available_shift_keys_set=None):
+        
+        #y grouping
+        rows={}
+        for name, key in self.keys.items():
+            # print(f"{name} {key._pos.x} {key._pos.y} {key._width} {key._height} {key._offset}")
+            if key._pos.y not in rows:
+                rows[key._pos.y]=[name,]    
+            else:
+                rows[key._pos.y].append(name)
+
+        
+
+        for row in rows.values():
+            row.sort(key=lambda k: self.keys[k]._pos.x)
+        
+
+        custom_keys={"x":{},"y":{},"width":{},"height":{},"offset":{}}
+
+        layout=[]
+
+        previous_y=self.left_most_y
+        for y, row in rows.items():
+            previous_x=self.left_most_x
+            aliged=False
+            for name in row:
+                key=self.keys[name]
+                if (key._pos.x-previous_x)>1e-6:
+                    custom_keys["x"][name]=key._pos.x
+                if not aliged:
+                    if(key._pos.y-previous_y)>1e-6:
+                        custom_keys["y"][name]=key._pos.y
+                    previous_y=key._pos.y+key._height
+                    aliged=True
+                
+                previous_x=key._pos.x+key._width
+                if key._width!=1:
+                    custom_keys["width"][name]=key._width
+                if key._height!=1:
+                    custom_keys["height"][name]=key._height
+                if key._offset!=0:
+                    custom_keys["offset"][name]=key._offset
+
+            layout.append(row)
+        if available_keys_set is not None and available_shift_keys_set is not None:
+            check_required_config_file("available_keys.txt")
+            check_required_config_file("available_shift_keys.txt")
+            available_keys=[]
+            available_shift_keys=[]
+            for row in layout:
+                available_keys.append([name for name in row if name in available_keys_set])
+                available_shift_keys.append([name for name in row if name in available_shift_keys_set])
+
+        if save_custom_keys:
+            check_required_config_file("custom_keys.json")
+            custom_keys={k:v for k,v in custom_keys.items() if v}
+            write_json("custom_keys.json", custom_keys)
+        if save_layout:
+            check_required_config_file("layout.txt")
+            write_text_rows("layout.txt", layout)
+
+class Variance:
+    def get(self):
+        return {
+            'bspc':{'bspc','backspace','bs','<'},
+            'spc':{'sp','space','spc','_'},
+            'sft': {'sft','lsft','shift','rsft','lshift', 'rshift'},
+            'chat': {'chat'},
+            'home': {'home', 'hm'},
+        }
+
+
+class Layout(Validator):
+    def __init__(self):
+        super().__init__()
+
         self._init_layout()
         self._init_keys()
-        self._init_finger()
         self._init_keystrokes()
         self._init_artist()
 
@@ -97,42 +286,26 @@ class Layout:
         self._init_max_finger_dists()
         self._precompute()
         self._init_visual()
-          
+
     def _init_layout(self):
-        self.KEY_WIDTH={}
+        self.custom_keys={}
+        file_name="custom_keys.json"
 
-        check_required_config_file("key_widths.json")
+        check_required_config_file(file_name)
 
-        try:
-            with open('config/key_widths.json','r') as file:
-                self.KEY_WIDTH=json.load(file)
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN key_widths.json FILE: {e}")
-            raise SystemExit
+        self.custom_keys=read_json(file_name)
 
         self.keys={}
-        cur_y=0
-        with open('config/layout.txt','r') as file:
-            for line in file:
-                cur_x=0
-                for key in line.split():
-                    self._is_key_correct_type(key, 'layout.txt')
-                    if key in self.KEY_WIDTH:
-                        is_list=False
-                        has_offset=False
-                        if isinstance(self.KEY_WIDTH[key],list):
-                            is_list=True
-                            has_offset=len(self.KEY_WIDTH[key])>1
-                        
-                        self.keys[key]=Key(cur_x,cur_y,self.KEY_WIDTH[key][0] if is_list else self.KEY_WIDTH[key], self.KEY_WIDTH[key][1] if is_list and has_offset else 0)
 
-                        cur_x+=self.KEY_WIDTH[key][0]
-                    else:
-                        self.keys[key]=Key(cur_x,cur_y)
-                        cur_x+=1
-                cur_y+=1
-        self.num_rows=cur_y
-  
+        self.organizer=LayoutOrganizer()
+        file_name="layout.txt"
+
+        check_required_config_file(file_name)
+        layout=read_text_rows(file_name)
+        self.organizer.load_layout(layout, self.custom_keys)
+        
+        self.keys=self.organizer.keys.copy()
+        # self.num_rows=cur_y
     def _init_keys(self):
         #SHIFT LAYER
 
@@ -151,28 +324,16 @@ class Layout:
 
         if not check_config_file("fixed_shift_keys.json"):
             # shutil.copyfile("config/fixed_keys.json", "config/fixed_shift_keys.json")
-            with open("config/fixed_shift_keys.json","w") as file:
-                json.dump({},file) 
+            write_json("fixed_shift_keys.json", {})
 
     def _init_fixed_keys(self):
         #FIXED KEY
         file_name='fixed_keys.json'
         check_required_config_file(file_name)
         self.fixed_keys=[]
-        try:
-            with open(f'config/{file_name}','r', encoding='utf-8') as file:
-                self.fixed_keys.append(json.load(file))
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
-            raise SystemExit
+        self.fixed_keys.append(read_json(file_name))
         
-        special_variances={
-            'bspc':{'bspc','backspace','bs','<'},
-            'spc':{'sp','space','spc','_'},
-            'sft': {'sft','lsft','shift','rsft','lshift', 'rshift'},
-            'chat': {'chat'},
-            'home': {'home', 'hm'},
-        }
+
 
         #Special keys, with keyslot, name, keybind (if keyslot still none it means the key is flexible)
         
@@ -183,7 +344,7 @@ class Layout:
             'chat':[None,'chat',None],
             'home':[None,'home',None]
         }
-        
+        special_variances=Variance().get()
 
         # print(self.fixed_keys)
 
@@ -232,17 +393,12 @@ class Layout:
             if isinstance(remap,str) or (isinstance(remap,list) and len(remap)==1):
                 self.fixed_keys[0].pop(self.special_keys['chat'][0])
             elif isinstance(remap,list) and len(remap)>1:
-                self.fixed_keys[0][self.chat]=self.fixed_keys[0][self.chat][1 if remap[0] in special_variances['chat'] else 0]
+                self.fixed_keys[0][self.special_keys['chat'][0]]=self.fixed_keys[0][self.special_keys['chat'][0]][1 if remap[0] in special_variances['chat'] else 0]
         
         #FOR SHIFT LAYER
 
         file_name='fixed_shift_keys.json'
-        try:
-            with open(f'config/{file_name}','r', encoding='utf-8') as file:
-                self.fixed_keys.append(json.load(file))
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
-            raise SystemExit
+        self.fixed_keys.append(read_json(file_name))
 
 
         for key,remap in self.fixed_keys[1].items():
@@ -258,33 +414,28 @@ class Layout:
 
         check_required_config_file(file_name)
         self.remaps=[{key: remap  for key, remap in layer.items()} for layer in self.fixed_keys]
-        with open(f'config/{file_name}','r') as file:
-            for line in file:
-                for key in line.split():
-                    self._is_key_correct_type(key, file_name)
-                    self._does_key_exist(key,self.keys, file_name, 'layout.txt')
-
-                    if key in self.fixed_keys[0] and key!=self.special_keys['chat'][0]:
-                        print(f"WARNING: Key [{key}] already in fixed_keys.json, skipping it!")
-                        continue
-
-                    self.remaps[0][key]=key
+        layout=read_text_rows(file_name)
+        for line in layout:
+            for key in line:
+                self._is_key_correct_type(key, file_name)
+                self._does_key_exist(key,self.keys, file_name, 'layout.txt')
+                if key in self.fixed_keys[0] and key!=self.special_keys['chat'][0]:
+                    print(f"WARNING: Key [{key}] already in fixed_keys.json, skipping it!")
+                    continue
+                self.remaps[0][key]=key
 
         #SHIFT LAYER
         file_name='available_shift_keys.txt'
         check_required_config_file(file_name)
-        with open(f'config/{file_name}','r') as file:
-            for line in file:
-                for key in line.split():
-                    self._is_key_correct_type(key, file_name)
-                    self._does_key_exist(key,self.keys, file_name, 'layout.txt')
-                    if key in self.fixed_keys[1]:
-                        print(f"WARNING: Key [{key}] already in fixed_shift_keys.json, skipping it!")
-                        continue
-                    if any(key==self.special_keys[k][0] for k in self.special_keys):
-                        print(f"WARNING: Key [{key}] already in fixed_keys.json, skipping it!")
-                        continue
-                    self.remaps[1][key]=key
+        layout=read_text_rows(file_name)
+        for line in layout:
+            for key in line:
+                self._is_key_correct_type(key, file_name)
+                self._does_key_exist(key,self.keys, file_name, 'layout.txt')
+                if key in self.fixed_keys[1]:
+                    print(f"WARNING: Key [{key}] already in fixed_shift_keys.json, skipping it!")
+                    continue
+                self.remaps[1][key]=key
 
         self.key2idx=[{},{}]
         self.sizes=[len(layer) for layer in self.remaps]
@@ -322,12 +473,7 @@ class Layout:
         # print(self.key2idx)
         # print(self.idx2key)
     
-    def _init_finger(self):
-        self.FINGER_CODE={'pinky':0,'ring':1,'middle':2,'index':3,'thumb':4} #DO NOT TOUCH
-        self.HAND_CODE={'left':0,'right':1} #DO NOT TOUCH
 
-        self.idx2finger=[f"{hand}_{finger}" for hand, hand_idx in sorted(self.HAND_CODE.items(),key=lambda x: x[1]) for finger, finger_idx in sorted(self.FINGER_CODE.items(),key=lambda x: x[1])]
-        self.finger2idx={finger: idx for idx, finger in enumerate(self.idx2finger)}
 
     def _validate_keyspace(self):
         """Ensure that available keys can accommodate the layer-specific keybinds."""
@@ -352,12 +498,7 @@ class Layout:
         self.base_keybinds_set=set()
         self.shift_keybinds_set=set()
 
-        try:
-            with open(f'config/{file_name}','r', encoding='utf-8') as file:
-                keystrokes_dict=json.load(file)
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
-            raise SystemExit
+        keystrokes_dict=read_json(file_name)
 
         
         for name, keystroke in keystrokes_dict.items():
@@ -369,20 +510,19 @@ class Layout:
                     raise ValueError(f"\nPLEASE ENTER KEYS FOR [{name.upper()}] IN {file_name} FILE FIRST!")
             
             if "weight" in keystroke:
+                weight=keystroke["weight"]
+                if not isinstance(weight, (int, float)):
+                    raise ValueError(f"\nWEIGHT OF KEYSTROKE [{name.upper()}] IN {file_name} FILE MUST BE A NUMBER (NOT {type(weight)})!")
                 # keystroke["weight"]=average
-                self.total_weights+=keystroke["weight"]
+                self.total_weights+=weight
             else: missing_w_count+=1
+
 
 
         #second pass of finding the variance of special keys, if not use the default ones
         #it is crucial to find the special keys first before finding the layer of each keybind, because some keybinds are universal and we don't know the name.
-        special_variances={
-            'bspc':{'bspc','backspace','bs','<'},
-            'spc':{'sp','space','spc','_'},
-            'sft': {'sft','lsft','shift','rsft','lshift', 'rshift'},
-            'chat': {'chat'},
-            'home': {'home', 'hm'},
-        }
+        special_variances=Variance().get()
+
         for key in special_variances:
             for name, keystroke in keystrokes_dict.items():
                 for i, k in enumerate(keystroke["keys"]):
@@ -396,7 +536,10 @@ class Layout:
 
         for name, keystroke in keystrokes_dict.items():
             if "layer" in keystroke:
-                match keystroke["layer"]:
+                layer=keystroke["layer"]
+                if layer not in ("any","both","base","shift"):
+                    raise ValueError(f"\nWEIGHT OF KEYSTROKE [{name.upper()}] IN {file_name} FILE MUST BE EITHER base, shift, both or any (NOT {layer})")
+                match layer:
                     case "both":
                         for key in keystroke["keys"]:
                             if key in self.base_keybinds_set:
@@ -533,12 +676,7 @@ class Layout:
         self.assigned_keys={}
         file_name='assigned_fingers.json'
         check_required_config_file(file_name)
-        try:
-            with open(f'config/{file_name}','r') as file:
-                self.assigned_keys=json.load(file)
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
-            raise SystemExit
+        self.assigned_keys=read_json(file_name)
 
 
         self.key_idx2finger_idx=[None]*len(self.idx2key)
@@ -592,14 +730,14 @@ class Layout:
         for key, data in self.keys.items():
             if all(key not in layer for layer in self.key2idx):
                 continue
-            rect = patches.Rectangle((data._pos.x, data._pos.y), data._width, 1, 
+            rect = patches.Rectangle((data._pos.x, data._pos.y), data._width, data._height, 
                          linewidth=0.1, edgecolor=ec, facecolor=fc, alpha=1)
             self.rects.append(rect)
             self.ax.add_patch(rect)
 
             if key in self.key2idx[0]:
                 
-                self.texts.append(self.ax.text(data.fpos.x+base_x_offset, data.fpos.y+base_x_offset, self.remaps[0][key] if key in self.remaps[0] else key, 
+                self.texts.append(self.ax.text(data.fpos.x+base_x_offset, data.fpos.y+base_y_offset, self.remaps[0][key] if key in self.remaps[0] else key, 
                     color=tc, fontsize=12, fontweight='bold',
                     ha='center', va='center'))
 
@@ -619,27 +757,22 @@ class Layout:
         self.hand=[[],[]] # Initialize two empty lists for left and right hands
         file_name="home_keys.json"
         check_required_config_file(file_name)
-        try:
-            with open(f'config/{file_name}','r') as file: 
-                for finger, key in json.load(file).items():
-                    self._validate_finger(finger,file_name)
-                    self._does_key_exist(key, self.keys, file_name, 'layout.txt')
+        temp_home_keys=read_json(file_name)
+        for finger, key in temp_home_keys.items():
+            self._validate_finger(finger,file_name)
+            self._does_key_exist(key, self.keys, file_name, 'layout.txt')
+            found=False
+            for i,layer in enumerate(self.key2idx):
+                if key not in layer:
+                    continue
+                self.home_keys[self.finger2idx[finger]]=self.key2idx[i][key]
+                found=True
+            if found:
+                hand_code, finger_code=self.get_finger_roll(self.finger2idx[finger])
+                self.hand[hand_code].append(finger_code)
+            else:
+                print(f"WARNING: Home key [{key}] for finger [{finger}] is not active (not in fixed/available keys), skipping finger.")
 
-                    found=False
-                    for i,layer in enumerate(self.key2idx):
-                        if key not in layer:
-                            continue
-                        self.home_keys[self.finger2idx[finger]]=self.key2idx[i][key]
-                        found=True
-
-                    if found:
-                        hand_code, finger_code=self.get_finger_roll(self.finger2idx[finger])
-                        self.hand[hand_code].append(finger_code)
-                    else:
-                        print(f"WARNING: Home key [{key}] for finger [{finger}] is not active (not in fixed/available keys), skipping finger.")
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
-            raise SystemExit
 
         self.hand[0].sort()
         self.hand[1].sort()
@@ -647,8 +780,7 @@ class Layout:
         natural_pos={}
         file_name='finger_natural_positions.json'
         check_required_config_file(file_name)
-        with open(f'config/{file_name}','r') as file:
-            natural_pos=json.load(file)
+        natural_pos=read_json(file_name)
         self.finger_natural_pos={}
         for finger_idx in self.home_keys:
             hand, finger=self.idx2finger[finger_idx].split('_')
@@ -665,12 +797,7 @@ class Layout:
         self.finger_efforts={}
         file_name='parameters.json'
         check_required_config_file(file_name)
-        try:
-            with open(f'config/{file_name}','r') as file:
-                parameters=json.load(file)
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
-            raise SystemExit
+        parameters=read_json(file_name)
         if "finger_efforts" not in parameters:
             raise IndexError(f"\nPLEASE ENTER FINGER EFFORTS IN {file_name} FILE FIRST!")
         self.finger_efforts=parameters["finger_efforts"]
@@ -684,12 +811,7 @@ class Layout:
         tfinger_dists={}
         file_name='max_finger_distances.json'
         check_required_config_file(file_name)
-        try:
-            with open(f"config/{file_name}","r") as file:
-                tfinger_dists=json.load(file)
-        except json.JSONDecodeError as e:
-            print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
-            raise SystemExit
+        tfinger_dists=read_json(file_name)
 
         self.finger_dists={} #THIS USE FINGER CODE AND HAND CODE AS INDEX SYSTEM (SAME WITH FINGER_CODE, HAND_CODE) NOT THE FINGER_IDX SYSTEM (SAME WITH finger2idx)
         for FF, dist in tfinger_dists.items():
@@ -770,20 +892,6 @@ class Layout:
         self.ax.set_title(title[:-2])
         self.ax.autoscale_view()
         plt.savefig(f'output/{name}.svg')
-
-    def _does_key_exist(self,key: str, container: dict, file, root_file):
-        if key not in container:
-            raise ValueError(f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN {file} FILE DOESN'T APPEAR IN {root_file} FILE!")
-        return True
-
-    def _is_key_correct_type(self,key: str, file):
-        if not isinstance(key,str):
-            raise TypeError(f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN {file} FILE HAS INCORRECT TYPE, IT NEEDS TO BE STRING NOT ({type(key)})!")
-        return True
-    def _validate_finger(self, finger, file):
-        if finger not in self.finger2idx:
-            raise ValueError(f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN {file} FILE IS INVALID!")
-        return True
 
 
 

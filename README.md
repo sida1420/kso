@@ -1,5 +1,3 @@
-> [!WARNING]
-> We still in beta btw
 # KSO
 
 A multi-objective optimizer for keyboard keybind layouts using Parallel Tampering. Optimizes keybind placements.
@@ -27,31 +25,29 @@ pip install matplotlib numpy
 │   ├── fixed_keys.json
 │   ├── fixed_shift_keys.json
 │   ├── home_keys.json
-│   ├── key_widths.json
+│   ├── custom_keys.json
 │   ├── keystrokes.json     # Your key combinations here
 │   ├── layout.txt
 │   ├── parameters.json
 │   └── target_metrics.json
 ├── output/                 # Generated layout SVGs
+├── GUI.pyw                 # Executable GUI here
 ├── run.py                  # Run the code here
 └── ...
 ```
-
 ## Usage
 
 >Detailed tutorial about how to config and run is at the end of this!
 
-After edit your desire keystrokes in `config/keystrokes.json`, run this in terminal
-
-```bash
-python run.py
-```
+Double click `GUI.pyw`, that's it!
 
 The algorithm runs for 3000 generations by default. Results are saved as SVG images in the `output/` directory:
 - `layout.svg` — initial layout
 - `top_1.svg` ... `top_5.svg` — best optimized layouts
 
 
+> [!WARNING]
+> Everything bellow is outdated, for non-GUI users
 
 ## Customization
 
@@ -60,7 +56,7 @@ The algorithm runs for 3000 generations by default. Results are saved as SVG ima
 - **Target priorities:** Edit `config/target_metrics.json` to change which metrics matter most to you.
 - **Which finger to press a key**: Edit `config/assigned_fingers.json`
 - **Natural finger positions**: Edit `home_keys.json` to change your start finger positions for each keystroke (Ideally your movement keys).
-- **Layout:** Edit `config/layout.txt` and `config/key_widths.json` to change the physical keyboard shape.
+- **Layout:** Edit `config/layout.txt` and `config/custom_keys.json` to change the physical keyboard shape.
 
 ## Metrics
 

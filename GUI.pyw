@@ -316,6 +316,7 @@ class KeyboardCanvas(tk.Canvas):
         except:
             pass
         return None
+
     def on_click(self, event):
         """Click handler"""
         name = self.identify_slot(event)
@@ -447,6 +448,7 @@ class GUI(tk.Tk):
         self.process=None
         self.output_queue=queue.Queue()
         self.current_keystroke = None
+        self.new_selected_keystroke= None
         self._poll_id=None
 
         self._setup_ui()
@@ -583,7 +585,8 @@ class GUI(tk.Tk):
         ttk.Checkbutton(editor, text="Active base", variable=self.layout_active_base, command=self._on_layout_active_changed).pack(anchor="w", padx=6, pady=2)
         ttk.Checkbutton(editor, text="Active shift", variable=self.layout_active_shift, command=self._on_layout_active_changed).pack(anchor="w", padx=6, pady=2)
 
-        ttk.Button(right, text="Delete Key", command=self._delete_layout_key).pack(fill="x", padx=6, pady=2)
+        self.delete_key_button=ttk.Button(right, text="Delete Key", command=self._delete_layout_key, state="disabled")
+        self.delete_key_button.pack(fill="x", padx=6, pady=2)
         ttk.Button(right, text="Add Key", command=self._add_layout_key).pack(fill="x", padx=6, pady=2)
         ttk.Button(right, text="Reload", command=self._reload_layout).pack(fill="x", padx=6, pady=2)
         ttk.Button(right, text="Save", command=self._save_layout).pack(fill="x", padx=6, pady=2)
@@ -629,7 +632,8 @@ class GUI(tk.Tk):
         self.fixed_chat_var.trace_add("write", lambda *a: self._on_fixed_changed("chat"))
         ttk.Checkbutton(editor, text="Chat key", variable=self.fixed_chat_var).pack(anchor="w", padx=6, pady=2)
         
-        ttk.Button(right, text="Remove", command=self._remove_fixed).pack(fill="x", padx=6, pady=2)
+        self.remove_fixed_button=ttk.Button(right, text="Remove", command=self._remove_fixed, state="disabled")
+        self.remove_fixed_button.pack(fill="x", padx=6, pady=2)
         ttk.Button(right, text="Reload", command=self._reload_fixed).pack(fill="x", padx=6, pady=2)
         ttk.Button(right, text="Save", command=self._save_fixed).pack(fill="x", padx=6, pady=2)
             
@@ -677,7 +681,8 @@ class GUI(tk.Tk):
             color_box.pack(side="left", padx=(0, 4))
             ttk.Label(row, text=finger).pack(side="left")
         
-        ttk.Button(right, text="Remove from finger", command=self._remove_key_from_finger).pack(fill="x", padx=6, pady=2)
+        self.remove_from_finger_button=ttk.Button(right, text="Remove from finger", command=self._remove_key_from_finger, state="disabled")
+        self.remove_from_finger_button.pack(fill="x", padx=6, pady=2)
         ttk.Button(right, text="Reload", command=self._reload_finger).pack(fill="x", padx=6, pady=2)
         ttk.Button(right, text="Save", command=self._save_finger).pack(fill="x", padx=6, pady=2)
     
@@ -690,6 +695,9 @@ class GUI(tk.Tk):
         toolbar.pack(fill="x", padx=8, pady=8)
         ttk.Button(toolbar, text="Reload", command=self._reload_keystrokes).pack(side="left")
         ttk.Button(toolbar, text="Save", command=self._save_keystrokes).pack(side="left", padx=(4, 0))
+        ttk.Button(toolbar, text="Add Keystroke", command=self._add_keystroke).pack(side="left", padx=(4,0))
+        self.delete_keystroke_button=ttk.Button(toolbar, text="Remove Keystroke", command=self._delete_keystroke, state="disabled")
+        self.delete_keystroke_button.pack(side="left",padx=(4,0))
         
         self.keystroke_tree = ttk.Treeview(frame, columns=("name", "weight", "layer", "keys"), show="headings", height=15)
         self.keystroke_tree.heading("name", text="Name")
@@ -739,6 +747,7 @@ class GUI(tk.Tk):
                                 bg="#0f1318", fg="#e6e6e6", relief="flat", highlightthickness=0)
         self.run_output.pack(fill="both", expand=True, padx=8, pady=(0, 8))
 
+
     
     def _refresh_layout(self):
         key = self.layout_canvas.get_selected_key()
@@ -748,7 +757,9 @@ class GUI(tk.Tk):
                 v.set("")
             self.layout_active_base.set(False)
             self.layout_active_shift.set(False)
+            self.delete_key_button.config(state="disabled")
             return
+        self.delete_key_button.config(state="normal")
         
         self.layout_sel_label.config(text=f"Selected: {self.layout_canvas.selected}")
         self.layout_fields["x"].set(str(round(key._pos.x, 2)))
@@ -829,7 +840,7 @@ class GUI(tk.Tk):
 
     def _delete_layout_key(self):
         """Delete selected key."""
-        if self.layout_canvas.selected:
+        if self.layout_canvas.get_selected_key:
             self.model.remove_key(self.layout_canvas.selected)
             self.model.available_keys.discard(self.layout_canvas.selected)
             self.model.available_shift_keys.discard(self.layout_canvas.selected)
@@ -861,7 +872,9 @@ class GUI(tk.Tk):
             self.fixed_base_var.set("")
             self.fixed_shift_var.set("")
             self.fixed_chat_var.set(False)
+            self.remove_fixed_button.config(state="disabled")
             return
+        self.remove_fixed_button.config(state="normal")
         
         self.fixed_sel_label.config(text=f"Selected: {key_name}")
         is_chat = self.model.chat == key_name
@@ -939,7 +952,9 @@ class GUI(tk.Tk):
             self.finger_sel_label.config(text="None")
             self.finger_select_var.set("")
             self.home_key_var.set(False)
+            self.remove_from_finger_button.config(state="disabled")
             return
+        self.remove_from_finger_button.config(state="normal")
         
         self.finger_sel_label.config(text=f"Selected: {key_name}")
         assigned = [f for f, keys in self.model.assigned_fingers.items() if key_name in keys]
@@ -1037,13 +1052,18 @@ class GUI(tk.Tk):
         """Refresh keystrokes treeview."""
         selected_name = preserve_name
         if selected_name is None:
-            sel = self.keystroke_tree.selection()
-            if sel:
-                selected_name = self.keystroke_tree.item(sel[0], "values")[0]
+            if self.new_selected_keystroke:
+                selected_name=self.new_selected_keystroke
+                self.keystroke_tree.selection_set(self.keystroke_tree.get_children()[-1])
+                self.new_selected_keystroke=None
+            else:
+                sel = self.keystroke_tree.selection()
+                if sel:
+                    selected_name = self.keystroke_tree.item(sel[0], "values")[0]
         
         self.keystroke_tree.unbind("<<TreeviewSelect>>")
         self.keystroke_tree.delete(*self.keystroke_tree.get_children())
-        for name, data in sorted(self.model.keystrokes.items()):
+        for name, data in self.model.keystrokes.items():
             keys = ", ".join(data.get("keys", []))
             weight = data.get("weight", "")
             layer = data.get("layer", "")
@@ -1064,9 +1084,12 @@ class GUI(tk.Tk):
         sel = self.keystroke_tree.selection()
         if not sel:
             self.current_keystroke = None
+            self.delete_keystroke_button.config(state="disabled")
             for v in self.keystroke_fields.values():
                 v.set("")
             return
+
+        self.delete_keystroke_button.config(state="normal")
 
         item = sel[0]
         values = self.keystroke_tree.item(item, "values")
@@ -1148,6 +1171,22 @@ class GUI(tk.Tk):
         except Exception as e:
             messagebox.showerror("Error", f"Failed: {e}")
 
+    def _add_keystroke(self):
+        n=len(self.model.keystrokes)
+        name=f"keystroke_{n}"
+        while name in self.model.keystrokes:
+            n+=1
+            name=f"keystroke_{n}"
+
+        self.model.keystrokes[name]={"keys":[],"weight": None,"layer": "any"}
+        self.new_selected_keystroke=name
+        self._refresh_keystrokes()
+
+    def _delete_keystroke(self):
+        if not self.current_keystroke:
+            return
+        self.model.keystrokes.pop(self.current_keystroke)
+        self._refresh_keystrokes()
     def _start_optimization(self):
         """Start optimization subprocess."""
         try:
@@ -1214,6 +1253,7 @@ class GUI(tk.Tk):
                 break
         
         self._poll_id = self.after(100, self._poll_queue)
+
 
     def _on_shift_press(self, event):
         """Handle shift key press."""

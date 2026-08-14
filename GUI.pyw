@@ -1,13 +1,15 @@
+import os
+import platform
 import queue
 import subprocess
 import sys
 import threading
-import traceback
 import tkinter as tk
+import traceback
 from tkinter import messagebox, ttk
-
 from classes import *
 from helper import *
+
 
 class KeySlot(Key):
 
@@ -812,6 +814,7 @@ class GUI(tk.Tk):
         self.start_button.pack(side="left")
         self.stop_button = ttk.Button(toolbar, text="Stop", command=self._stop_optimization, state="disabled")
         self.stop_button.pack(side="left", padx=(4, 0))
+        ttk.Button(toolbar, text="Open Output Folder", command=self._open_output_folder).pack(side="right")
         
         self.run_output = tk.Text(frame, wrap="none", state="disabled", font=("Courier", 9), 
                                 bg="#0f1318", fg="#e6e6e6", relief="flat", highlightthickness=0)
@@ -1337,6 +1340,16 @@ class GUI(tk.Tk):
             self.process = None
         self.start_button.config(state="normal")
         self.stop_button.config(state="disabled")
+
+    def _open_output_folder(self):
+        system_name = platform.system()
+    
+        if system_name == "Windows":
+            os.startfile(OUTPUT_DIR)
+        elif system_name == "Darwin":  # macOS
+            subprocess.Popen(["open", OUTPUT_DIR])
+        else:  # Linux / Unix
+            subprocess.Popen(["xdg-open", OUTPUT_DIR])
     
     def _read_process_output(self):
         """Read and display subprocess output."""

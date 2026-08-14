@@ -1,5 +1,14 @@
 
+import importlib.util
+import subprocess
+import sys
+def install(package_to_install):
+    if importlib.util.find_spec(package_to_install) is None:
+        print(f"WARNING: {package_to_install} not found. Installing... this may take a while.")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package_to_install])
 
+install("matplotlib")
+install("numpy")
 from helper import *
 import math
 from pathlib import Path
@@ -275,6 +284,7 @@ class Layout(Validator):
     def __init__(self):
         super().__init__()
 
+        self._init_parameters()
         self._init_layout()
         self._init_keys()
         self._init_keystrokes()
@@ -282,7 +292,6 @@ class Layout(Validator):
 
         self._init_assigned_keys()
         self._init_home_keys()
-        self._init_parameters()
         self._init_max_finger_dists()
         self._precompute()
         self._init_visual()
@@ -591,8 +600,9 @@ class Layout(Validator):
                         
 
         #make 2 version of each keystoke: normal version and start with shift home version
-        self.keystrokes+=[{"keys": [self.special_keys['sft'][1], self.special_keys['home'][1]]+keys_n_weight["keys"],"weight":keys_n_weight["weight"]/2} for keys_n_weight in self.keystrokes]
-        self.total_weights*=1.5
+        if self.shift_home_percent:
+            self.keystrokes+=[{"keys": [self.special_keys['sft'][1], self.special_keys['home'][1]]+keys_n_weight["keys"],"weight":keys_n_weight["weight"]*self.shift_home_percent} for keys_n_weight in self.keystrokes]
+            self.total_weights*=(1+self.shift_home_percent)
 
         #normalize weight
         for i in range(len(self.keystrokes)):
@@ -795,12 +805,13 @@ class Layout(Validator):
 
     def _init_parameters(self):
         self.finger_efforts={}
-        file_name='parameters.json'
+        file_name='settings.json'
         check_required_config_file(file_name)
         parameters=read_json(file_name)
         if "finger_efforts" not in parameters:
             raise IndexError(f"\nPLEASE ENTER FINGER EFFORTS IN {file_name} FILE FIRST!")
         self.finger_efforts=parameters["finger_efforts"]
+        self.shift_home_percent=parameters.get("auto_generate_shift_home", 0)
         for finger in self.finger_efforts:
             if finger not in self.finger2idx:
                 raise ValueError(f"\nFINGER NAME [{finger.upper()}] YOU ASSIGNED IN {file_name}:FINGER_EFFORTS FILE IS INVALID!")

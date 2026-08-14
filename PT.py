@@ -1,4 +1,3 @@
-import heapq
 import init
 import selection
 import classes
@@ -71,7 +70,7 @@ def run():
 
         scaled_evals = [evaluate.apply_scale(e, dynamic_min, dynamic_max) for e in evaluations]
         scores = [evaluate.weighted_sum_scaled(scaled_evals[i], weight_vectors[i])
-                  for i in range(paras.population_size)]
+                for i in range(paras.population_size)]
 
         elites = [(scores[0], evaluations[0], replicas[0])]
         num_elites = 5

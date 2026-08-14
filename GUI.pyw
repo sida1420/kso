@@ -10,6 +10,7 @@ from classes import *
 from helper import *
 
 class KeySlot(Key):
+
     def __init__(self, lx, uy, width=1,height=1, offset=0, active_base=False, active_shift=False, fixed_base=None, fixed_shift=None):
         super().__init__(lx, uy, width, height, offset)
         self._active_base=active_base
@@ -25,6 +26,9 @@ class ConfigModel(Validator):
         self.load_fixed_keys()
         self.load_assigned_fingers()
         self.load_keystrokes()
+        self.used_settings=['generation_limit','dev_mode','auto_generate_shift_home']
+        self.default_settings=[3000,False,0]
+        self.load_options()
         
 
     def load_layout(self):
@@ -159,7 +163,32 @@ class ConfigModel(Validator):
             temp_keystrokes[name]=values
 
         write_json("keystrokes.json", temp_keystrokes)
-    
+
+    def load_options(self):
+        file_name="settings.json"
+        check_required_config_file(file_name)
+        temp_settings=read_json(file_name)
+        self.settings={}
+        for k, d in zip(self.used_settings,self.default_settings):
+            v = temp_settings.get(k,d)
+
+            self.settings[k]=v
+            
+
+        file_name="target_metrics.json"
+        check_required_config_file(file_name)
+        self.target_metrics=read_json(file_name)
+
+    def save_options(self):
+        file_name="settings.json"
+        check_required_config_file(file_name)
+        temp_settings=read_json(file_name)
+        for k in self.used_settings:
+            temp_settings[k]=self.settings[k]
+        
+        write_json("settings.json", temp_settings)
+        write_json("target_metrics.json", self.target_metrics)
+        
     def add_key(self):
         return self.organizer.new_key()
     def remove_key(self, key):
@@ -191,7 +220,7 @@ class KeyboardCanvas(tk.Canvas):
         self._scale=60
         self.margin=8
 
-        self.snap=0.25
+        self.snap_step=0.25
         self.selected=None
         self.dragging=False
         self.drag_anchor=None
@@ -216,6 +245,9 @@ class KeyboardCanvas(tk.Canvas):
         self.show_labels = show_labels
         self.show_all_labels = show_all_labels
         self.redraw()
+
+    def snap(self, val):
+        return round(val/self.snap_step)*self.snap_step
 
     def redraw(self):
         self.delete("all")
@@ -274,8 +306,8 @@ class KeyboardCanvas(tk.Canvas):
         # Fixed mode: show remapping text
         if self.mode == "fixed":
             if name == self.model.chat:
-                self.create_text(x0 + 4, y0 + 4, text="chat", anchor="nw",
-                    fill="#ff79c6", font=("Arial", 8, "bold"), tags=("key", name))
+                self.create_text(x0 + 4, y0 + 4, text="CHAT", anchor="nw",
+                    fill="#ff79c6", font=("Arial", 10, "bold"), tags=("key", name))
             if not self.show_all_labels and not self.show_labels:
                 if name in self.model.fixed_keys:
                     self.create_text((x0+x1)/2,(y0+y1)/2,text=self.model.fixed_keys[name],
@@ -307,14 +339,6 @@ class KeyboardCanvas(tk.Canvas):
             for tag in tags:
                 if tag != "key":
                     return tag
-        try:
-            item = self.find_closest(event.x, event.y)[0]
-            tags = self.gettags(item)
-            for tag in tags:
-                if tag != "key":
-                    return tag
-        except:
-            pass
         return None
 
     def on_click(self, event):
@@ -360,14 +384,14 @@ class KeyboardCanvas(tk.Canvas):
         val_x = (drag_x - self.margin) / self._scale
         val_y = (drag_y - self.margin) / self._scale
         try:
-            step = float(self.snap)
+            step = float(self.snap_step)
             if step <= 0:
                 step = 1.0
         except Exception:
             step = 1.0
 
-        new_x = max(self.model.organizer.left_most_x, round(val_x / step) * step)
-        new_y = max(self.model.organizer.left_most_y, round(val_y / step) * step)
+        new_x = max(self.model.organizer.left_most_x, self.snap(val_x))
+        new_y = max(self.model.organizer.left_most_y, self.snap(val_y))
 
         key.set_pos(Point(new_x,new_y))
         self.redraw()
@@ -439,8 +463,8 @@ class GUI(tk.Tk):
 
         self.title("KSO")
 
-        self.geometry("1400x820")
-        self.minsize(1160,760)
+        self.geometry("1400x720")
+        self.minsize(1160,600)
 
         self._setup_theme()
         self.model=ConfigModel()
@@ -536,6 +560,7 @@ class GUI(tk.Tk):
         self._create_fixed_tab()
         self._create_finger_tab()
         self._create_keystrokes_tab()
+        self._create_options_tab()
         self._create_run_tab()
 
 
@@ -578,7 +603,7 @@ class GUI(tk.Tk):
         f = ttk.Frame(right)
         f.pack(fill="x", padx=6, pady=2)
         ttk.Label(f, text="Snap:", width=10).pack(side="left")
-        self.snap_var = tk.StringVar(value=str(self.layout_canvas.snap))
+        self.snap_var = tk.StringVar(value=str(self.layout_canvas.snap_step))
         self.snap_var.trace_add("write", lambda *a: self._on_snap_changed())
         ttk.Entry(f, textvariable=self.snap_var, width=20).pack(side="left", fill="x", expand=True)
 
@@ -731,6 +756,51 @@ class GUI(tk.Tk):
 
         self._refresh_keystrokes()
 
+    def _create_options_tab(self):
+        frame=ttk.Frame(self.notebook)
+        frame.columnconfigure(0, weight=1, uniform="equal_cols")
+        frame.columnconfigure(1, weight=1, uniform="equal_cols")
+        frame.rowconfigure(0, weight=0)
+        frame.rowconfigure(1, weight=1)
+
+        self.notebook.add(frame, text="Options")
+        toolbar = ttk.Frame(frame)
+        toolbar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=8)        
+        ttk.Button(toolbar, text="Reload", command=self._reload_options).pack(side="left")
+        ttk.Button(toolbar, text="Save", command=self._save_options).pack(side="left", padx=(4, 0))
+        
+        metric_editor = ttk.Labelframe(frame, text="Target Metrics")
+        metric_editor.grid(row=1, column=0, columnspan=1, sticky="nsew", padx=8, pady=(0, 8))
+
+        self.metric_option_fields={}
+        for fname, flabel in [("finger_strain", "Finger strain"), ("travel_distance", "Travel distance"), ("use_count", "Use count"), ("bad_roll","Bad roll"),("finger_stretch","Finger stretch")]:
+            f = ttk.Frame(metric_editor)
+            f.pack(fill="x", padx=6, pady=2)
+            ttk.Label(f, text=flabel + ":", width=25).pack(side="left")
+            var = tk.StringVar()
+            var.trace_add("write", lambda *a, fn=fname: self._on_metric_option_field_changed(fn))
+            ttk.Entry(f, textvariable=var, width=40).pack(side="left", fill="x", expand=True)
+            self.metric_option_fields[fname] = var
+
+        mixed_editor = ttk.Labelframe(frame, text="Mixed")
+        mixed_editor.grid(row=1, column=1, columnspan=1, sticky="nsew", padx=8, pady=(0, 8))
+
+        self.mixed_option_fields = {}
+        for fname, flabel in [("generation_limit", "Generation limit"), ("auto_generate_shift_home", "Auto generate shift home"), ("dev_mode", "Dev mode")]:
+            f = ttk.Frame(mixed_editor)
+            f.pack(fill="x", padx=6, pady=2)
+            ttk.Label(f, text=flabel + ":", width=25).pack(side="left")
+            if fname == "dev_mode":
+                var = tk.BooleanVar()
+                var.trace_add("write", lambda *a, fn=fname: self._on_mixed_option_field_changed(fn))
+                ttk.Checkbutton(f, variable=var).pack(side="left", fill="x", expand=True)
+            else:
+                var = tk.StringVar()
+                var.trace_add("write", lambda *a, fn=fname: self._on_mixed_option_field_changed(fn))
+                ttk.Entry(f, textvariable=var, width=40).pack(side="left", fill="x", expand=True)
+            self.mixed_option_fields[fname] = var
+        self._refresh_options()
+
     def _create_run_tab(self):
         """Optimization runner tab."""
         frame = ttk.Frame(self.notebook)
@@ -746,7 +816,6 @@ class GUI(tk.Tk):
         self.run_output = tk.Text(frame, wrap="none", state="disabled", font=("Courier", 9), 
                                 bg="#0f1318", fg="#e6e6e6", relief="flat", highlightthickness=0)
         self.run_output.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-
 
     
     def _refresh_layout(self):
@@ -782,25 +851,31 @@ class GUI(tk.Tk):
                 if abs(key._pos.x - val) < 0.001:
                     return
                 key.set_pos(Point(val,key._pos.y))
+                self.layout_fields["x"].set(str(round(val, 3)))
             elif fname == "y":
                 val=max(self.model.organizer.left_most_y,val)
                 if abs(key._pos.y - val) < 0.001:
                     return
                 key.set_pos(Point(key._pos.x,val))
+                self.layout_fields["y"].set(str(round(val, 3)))
             elif fname == "width":
                 val=max(val,1)
                 if abs(key._width - val) < 0.001:
                     return
                 key._width = val
+                self.layout_fields["width"].set(str(round(val, 3)))
             elif fname == "height":
                 val=max(val,1)
                 if abs(key._height - val) < 0.001:
                     return
                 key._height = val
+                self.layout_fields["height"].set(str(round(val, 3)))
             elif fname == "offset":
+                val=max(-key._width/2,min(val,key._width/2))
                 if abs(key._offset - val) < 0.001:
                     return
                 key._offset = val
+                self.layout_fields["offset"].set(str(round(val, 3)))
             self.layout_canvas.redraw()
         except ValueError:
             pass
@@ -827,7 +902,7 @@ class GUI(tk.Tk):
             v = float(self.snap_var.get())
             if v <= 0:
                 return
-            self.layout_canvas.snap = v
+            self.layout_canvas.snap_step = v
         except Exception:
             return
 
@@ -1187,6 +1262,58 @@ class GUI(tk.Tk):
             return
         self.model.keystrokes.pop(self.current_keystroke)
         self._refresh_keystrokes()
+
+    def _refresh_options(self):
+        for fname in ["finger_strain", "travel_distance", "use_count", "bad_roll","finger_stretch"]:
+            self.metric_option_fields[fname].set(str(self.model.target_metrics[fname]))
+        for fname in ["generation_limit", "auto_generate_shift_home", "dev_mode"]:
+            self.mixed_option_fields[fname].set(str(self.model.settings[fname]))
+        
+    def _reload_options(self):
+        try:
+            self.model.load_options()
+            self._refresh_options()
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+
+    def _save_options(self):
+        try:
+            self.model.save_options()
+            messagebox.showinfo("Success", "Options saved!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {e}")
+
+    def _on_metric_option_field_changed(self, field=None):
+        
+        if not field:
+            return
+
+        val=float(self.metric_option_fields[field].get().strip())
+        if val<0:
+            val=0
+            self.metric_option_fields[field].set(str(val))
+        self.model.target_metrics[field]=val
+
+    def _on_mixed_option_field_changed(self, field=None):
+        
+        val=self.mixed_option_fields[field].get()
+        match field:
+            case "generation_limit":
+                val=int(val)
+                if val<0:
+                    val=0
+                    self.mixed_option_fields[field].set(str(val))
+            case "auto_generate_shift_home":
+                val=float(val)
+                if val<0 or val>1:
+                    val=min(max(0,val),1)
+                    self.mixed_option_fields[field].set(str(val))
+            case "dev_mode":
+                val=bool(val) 
+            case _:
+                return            
+        self.model.settings[field]=val
+
     def _start_optimization(self):
         """Start optimization subprocess."""
         try:

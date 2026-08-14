@@ -1,13 +1,3 @@
-import importlib.util
-import subprocess
-import sys
-def install(package_to_install):
-    if importlib.util.find_spec(package_to_install) is None:
-        print(f"WARNING: {package_to_install} not found. Installing... this may take a while.")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package_to_install])
-
-install("matplotlib")
-install("numpy")
 from pathlib import Path
 import json
 ROOT_DIR = Path(__file__).resolve().parent

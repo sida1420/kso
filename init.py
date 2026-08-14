@@ -1,7 +1,6 @@
 import numpy as np
 import random
 from classes import *
-import random
 import json
 class Parameters:
     def __init__(self):
@@ -17,9 +16,8 @@ class Parameters:
                 print(f"\nSYNTAX ERROR IN {file_name} FILE: {e}")
                 raise SystemExit
             self.target_metrics=normalize_weights(target_metrics)
-    
 
-            with open('config/parameters.json') as file:
+            with open('config/settings.json') as file:
                 paras=json.load(file)
             if "generation_limit" in paras:
                 self.generation_limit=paras["generation_limit"]

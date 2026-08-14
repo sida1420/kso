@@ -1,7 +1,7 @@
 {
-    "finger_strain": 17,
-    "travel_distance": 15,
-    "use_count": 18,
-    "bad_roll": 17,
-    "finger_stretch": 11
+    "finger_strain": 17.0,
+    "travel_distance": 15.0,
+    "use_count": 18.0,
+    "bad_roll": 17.0,
+    "finger_stretch": 11.0
 }

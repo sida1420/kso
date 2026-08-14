@@ -3,21 +3,18 @@ import importlib.util
 import subprocess
 import sys
 
-
 def install(package_to_install):
     if importlib.util.find_spec(package_to_install) is None:
         print(f"WARNING: {package_to_install} not found. Installing... this may take a while.")
         subprocess.check_call([sys.executable, "-m", "pip", "install", package_to_install])
 
-install("matplotlib")
-install("numpy")
+def install_dependencies():
+    install("matplotlib")
+    install("numpy")
+
 import math
 import shutil
 from pathlib import Path
-
-import matplotlib.pyplot as plt
-from matplotlib import patches
-
 from helper import *
 
 
@@ -290,6 +287,12 @@ class Variance:
 class Layout(Validator):
     def __init__(self):
         super().__init__()
+
+        install_dependencies()
+        global plt, patches, np
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from matplotlib import patches
 
         self._init_parameters()
         self._init_layout()

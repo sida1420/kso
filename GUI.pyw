@@ -1,3 +1,4 @@
+import ctypes
 import os
 import platform
 import queue
@@ -1433,5 +1434,16 @@ class GUI(tk.Tk):
         self.destroy()
 
 if __name__ == "__main__":
+    # Tell Windows not to bitmap-stretch this app
+    if platform.system() == "Windows":
+        try:
+            # Per-Monitor DPI awareness (Windows 8.1 / 10 / 11)
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)
+        except Exception:
+            try:
+                # Fallback for older Windows versions
+                ctypes.windll.user32.SetProcessDPIAware()
+            except Exception:
+                pass
     app = GUI()
     app.mainloop()

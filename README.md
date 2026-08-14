@@ -1,16 +1,12 @@
 # KSO
 
-A multi-objective optimizer for keyboard keybind layouts using Parallel Tampering. Optimizes keybind placements.
+A multi-objective optimizer for automatically create keyboard layouts using Parallel Tampering to optimize keybind placements.
 
 <img src="./output/top_1.svg" width="400">
 
 ## Installation
 
-Requires **Python 3.10+**.
-After download Python, run this in terminal (You can skip this, the script can install dependencies itself):
-```bash
-pip install matplotlib numpy
-```
+Requires **Python 3.10+**
 
 ## Project Structure
 
@@ -44,10 +40,6 @@ Double click `GUI.pyw`, that's it!
 The algorithm runs for 3000 generations by default. Results are saved as SVG images in the `output/` directory:
 - `layout.svg` — initial layout
 - `top_1.svg` ... `top_5.svg` — best optimized layouts
-
-
-> [!WARNING]
-> Everything bellow is outdated, for non-GUI users
 
 ## Customization
 

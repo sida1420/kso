@@ -7,6 +7,7 @@ import threading
 import tkinter as tk
 import traceback
 from tkinter import messagebox, ttk
+
 from classes import *
 from helper import *
 
@@ -39,22 +40,25 @@ class ConfigModel(Validator):
         self.organizer=AdvLayoutOrganizer()
         self.organizer.load_layout(layout, custom_keys)
     
-    def save_layout(self):
-        self.organizer.save()
+    def save_layout(self, save_available_keys=False):
+        if save_available_keys:
+            self.organizer.save(available_keys_set=self.available_keys, available_shift_keys_set=self.available_shift_keys)
+
+        else:
+            self.organizer.save()
 
     def load_available_keys(self):
         check_required_config_file("available_keys.txt")
-        self.available_keys = set(name for row in read_text_rows("available_keys.txt") for name in row)
+        self.available_keys = {name for row in read_text_rows("available_keys.txt") for name in row}
         for key in self.available_keys:
             self._does_key_exist(key, self.organizer.keys,"available_keys.txt","layout.txt")
         check_required_config_file("available_shift_keys.txt")
-        self.available_shift_keys = set(name for row in read_text_rows("available_shift_keys.txt") for name in row)
+        self.available_shift_keys = {name for row in read_text_rows("available_shift_keys.txt") for name in row}
         for key in self.available_shift_keys:
             self._does_key_exist(key, self.organizer.keys,"available_shift_keys.txt","layout.txt")
 
     def save_available_keys(self):
         self.organizer.save(False,False, available_keys_set=self.available_keys, available_shift_keys_set=self.available_shift_keys)
-
 
     def load_fixed_keys(self):
         check_required_config_file("fixed_keys.json")
@@ -930,6 +934,7 @@ class GUI(tk.Tk):
         """Reload layout from files."""
         try:
             self.model.load_layout()
+            self.model.load_available_keys()
             self.layout_canvas.set_selected(None)
             self.layout_canvas.redraw()
             self._refresh_layout()
@@ -938,7 +943,7 @@ class GUI(tk.Tk):
 
     def _save_layout(self):
         try:
-            self.model.save_layout()
+            self.model.save_layout(save_available_keys=True)
             messagebox.showinfo("Success", "Layout saved!")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save: {e}")

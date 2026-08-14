@@ -1,5 +1,6 @@
-from pathlib import Path
 import json
+from pathlib import Path
+
 ROOT_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = ROOT_DIR / "config"
 OUTPUT_DIR = ROOT_DIR / "output"

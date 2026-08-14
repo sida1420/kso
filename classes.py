@@ -2,6 +2,8 @@
 import importlib.util
 import subprocess
 import sys
+
+
 def install(package_to_install):
     if importlib.util.find_spec(package_to_install) is None:
         print(f"WARNING: {package_to_install} not found. Installing... this may take a while.")
@@ -9,12 +11,14 @@ def install(package_to_install):
 
 install("matplotlib")
 install("numpy")
-from helper import *
 import math
-from pathlib import Path
 import shutil
-import matplotlib.pyplot as plt 
-import matplotlib.patches as patches
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+from matplotlib import patches
+
+from helper import *
 
 
 class Point:
@@ -260,6 +264,9 @@ class AdvLayoutOrganizer(LayoutOrganizer):
             for row in layout:
                 available_keys.append([name for name in row if name in available_keys_set])
                 available_shift_keys.append([name for name in row if name in available_shift_keys_set])
+
+            write_text_rows("available_keys.txt",available_keys)
+            write_text_rows("available_shift_keys.txt",available_shift_keys)
 
         if save_custom_keys:
             check_required_config_file("custom_keys.json")

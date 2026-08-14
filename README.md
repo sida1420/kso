@@ -43,16 +43,16 @@ The algorithm runs for 3000 generations by default. Results are saved as SVG ima
 
 ## Customization
 
-- **Keystrokes:** Edit `config/keystrokes.json` to define your own key sequences and weights.
-- **Which key to optimize**: Edit `config/available_keys.txt` to define what key slot is needed for optimize, and edit `config/fixed_keys.json` to define what key slot can't be used.
-- **Target priorities:** Edit `config/target_metrics.json` to change which metrics matter most to you.
-- **Which finger to press a key**: Edit `config/assigned_fingers.json`
-- **Natural finger positions**: Edit `home_keys.json` to change your start finger positions for each keystroke (Ideally your movement keys).
-- **Layout:** Edit `config/layout.txt` and `config/custom_keys.json` to change the physical keyboard shape.
+- **Keystrokes:** Use `Keystroke` tab (`config/keystrokes.json`) to define your own key sequences and weights.
+- **Which key to optimize**: Use `Layout` tab (`config/available_keys.txt`) to define what key slot is needed for optimize, and use `Fixed` tab (`config/fixed_keys.json`) to define what key slot can't be used.
+- **Target priorities:** Use `Options` tab (`config/target_metrics.json`) to change which metric matter most to you.
+- **Which finger to press a key**: Use `Finger` tab (`config/assigned_fingers.json`)
+- **Natural finger positions**: Use `Finger` tab (`home_keys.json`) to change your start finger positions for each keystroke (Ideally your movement keys).
+- **Layout:** Edit `Layout` tab (`config/layout.txt` and `config/custom_keys.json`) to change the physical keyboard shape.
 
 ## Metrics
 
-The optimizer minimizes five objectives (weights set in `target_metrics.json`):
+The optimizer minimizes five objectives (weights set in `Options` tab - `target_metrics.json`):
 
 | Metric | Description |
 |--------|-------------|
@@ -68,7 +68,14 @@ Lower scores are better.
 
 ## Detailed Tutorial
 
+
 ### Install python
+
+#### Use Microsoft Store
+Just search for `Python` and install it.
+
+#### Use terminal
+
 1. Open the folder stores your download, extract the script (the name could be different)
 
 <img width="475" height="236" alt="Screenshot 2026-05-26 174843" src="https://github.com/user-attachments/assets/1d475481-7a1e-47a1-943e-4474efa4297d" />
@@ -89,14 +96,7 @@ Recommend: `winget install Python.Python.3.12`
 
 Make sure you reopen the terminal before running any python related command!
 
-### Install dependencies
-1. Enter `pip install matplotlib numpy` in terminal and hit enter, that's all
-
-<img width="505" height="188" alt="Screenshot 2026-05-26 111802" src="https://github.com/user-attachments/assets/920bd3f5-0432-4f05-a793-3970030c4748" />
-
-2. Run the script first to make sure everything is okay `python run.py`
-
-### Config files
+### Config files (for people don't want to use GUI)
 #### keystrokes.json
 Most of your configuration is here! For each item or combo of items, make this format:
 ```json

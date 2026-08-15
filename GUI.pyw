@@ -619,10 +619,11 @@ class GUI(tk.Tk):
             f.pack(fill="x", padx=6, pady=2)
             ttk.Label(f, text=flabel + ":", width=10).pack(side="left")
             var = tk.StringVar()
-            var.trace_add("write", lambda *a, fn=fname: self._on_layout_field_changed(fn))
+            var.trace_add("write", lambda *a, fn=fname: self._validate_layout_field(fn))
             self.layout_fields[fname] = var
             self.layout_entries[fname]=ttk.Entry(f, textvariable=var, width=20)
             self.layout_entries[fname].pack(side="left", fill="x", expand=True)
+            self.layout_entries[fname].bind("<FocusOut>", lambda *a, fn=fname: self._on_layout_field_changed(fn))
 
         self.layout_active_base = tk.BooleanVar()
         self.layout_active_shift = tk.BooleanVar()
@@ -879,11 +880,11 @@ class GUI(tk.Tk):
         self.delete_key_button.config(state="normal")
         
         self.layout_sel_label.set(self.layout_canvas.selected)
-        self.layout_fields["x"].set(str(round(key._pos.x, 2)))
-        self.layout_fields["y"].set(str(round(key._pos.y, 2)))
-        self.layout_fields["width"].set(str(round(key._width, 2)))
-        self.layout_fields["height"].set(str(round(key._height, 2)))
-        self.layout_fields["offset"].set(str(round(key._offset, 2)))
+        self.layout_fields["x"].set(str(round(key._pos.x, 3)))
+        self.layout_fields["y"].set(str(round(key._pos.y, 3)))
+        self.layout_fields["width"].set(str(round(key._width, 3)))
+        self.layout_fields["height"].set(str(round(key._height, 3)))
+        self.layout_fields["offset"].set(str(round(key._offset, 3)))
         self.layout_active_base.set(self.layout_canvas.selected in self.model.available_keys)
         self.layout_active_shift.set(self.layout_canvas.selected in self.model.available_shift_keys)
     def _on_layout_key_name_changed(self):
@@ -929,7 +930,38 @@ class GUI(tk.Tk):
             
         self.layout_canvas.redraw()
 
-
+    def _validate_layout_field(self, fname):
+        
+        key = self.layout_canvas.get_selected_key()
+        if not key:
+            return
+        try:
+            val = float(self.layout_fields[fname].get().strip() or 0)
+            if fname == "x":
+                if val<self.model.organizer.left_most_x:
+                    raise ValueError(f"\nX IS TOO SMALL")
+                key.set_pos(Point(val,key._pos.y))
+            elif fname == "y":
+                if val<self.model.organizer.left_most_y:
+                    raise ValueError(f"\nY IS TOO SMALL")
+                key.set_pos(Point(key._pos.x,val))
+            elif fname == "width":
+                if val<1:
+                    raise ValueError(f"\nWIDTH MUST NOT BE SMALLER THAN 1")
+                key._width = val
+            elif fname == "height":
+                if val<1:
+                    raise ValueError(f"\nHEIGHT MUST NOT BE SMALLER THAN 1")
+                key._height = val
+            elif fname == "offset":
+                if val<-key._width/2 and val<key._width/2:
+                    raise ValueError(f"\nOFFSET MUST BE WITHIN THE KEY")
+                key._offset = val
+            self.layout_entries[fname].config(style="TEntry")
+        except ValueError:
+            self.layout_entries[fname].config(style="Invalid.TEntry")
+            pass
+        self.layout_canvas.redraw()
 
     def _on_layout_field_changed(self, fname):
         """Handle layout field edits."""
@@ -939,28 +971,31 @@ class GUI(tk.Tk):
         try:
             val = float(self.layout_fields[fname].get().strip() or 0)
             if fname == "x":
-                val=max(self.model.organizer.left_most_x,val)
+                if val<self.model.organizer.left_most_x:
+                    val=self.model.organizer.left_most_x
+                    self.layout_fields[fname].set(str(round(val,3)))
                 key.set_pos(Point(val,key._pos.y))
-                self.layout_fields["x"].set(str(round(val, 3)))
             elif fname == "y":
-                val=max(self.model.organizer.left_most_y,val)
+                if val<self.model.organizer.left_most_y:
+                    val=self.model.organizer.left_most_y
+                    self.layout_fields[fname].set(str(round(val,3)))
                 key.set_pos(Point(key._pos.x,val))
-                self.layout_fields["y"].set(str(round(val, 3)))
             elif fname == "width":
-                val=max(val,1)
-                self.layout_fields["width"].set(str(round(val, 3)))
+                if val<1:
+                    val=1.0
+                    self.layout_fields[fname].set(str(round(val,3)))
                 key._width = val
             elif fname == "height":
-                val=max(val,1)
+                if val<1:
+                    val=1.0
+                    self.layout_fields[fname].set(str(round(val,3)))
                 key._height = val
-                self.layout_fields["height"].set(str(round(val, 3)))
             elif fname == "offset":
-                val=max(-key._width/2,min(val,key._width/2))
+                if val<-key._width/2 and val<key._width/2:
+                    val=max(-key._width/2,min(val,key._width/2))
+                    self.layout_fields[fname].set(str(round(val,3)))
                 key._offset = val
-                self.layout_fields["offset"].set(str(round(val, 3)))
-            self.layout_entries[fname].config(style="TEntry")
         except ValueError:
-            self.layout_entries[fname].config(style="Invalid.TEntry")
             pass
         self.layout_canvas.redraw()
 

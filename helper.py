@@ -125,10 +125,10 @@ class Point:
 
 class Key:
     def __init__(self, lx: float, uy: float, width:float=1,height:float=1, offset:float=0):
-        self._pos=Point(lx,uy)
-        self._width=width
-        self._height=height
-        self._offset=offset
+        self._pos=Point(float(lx),float(uy))
+        self._width=float(width)
+        self._height=float(height)
+        self._offset=float(offset)
     
         self.fpos=self._pos+Point(self._width/2+self._offset,self._height/2)
 

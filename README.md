@@ -3,6 +3,9 @@
 A multi-objective optimizer for automatically create keyboard layouts using Parallel Tampering to optimize keybind placements.
 
 <img src="./output/top_1.svg" width="400">
+<img width="1397" height="713" alt="Screenshot 2026-08-15 160247" src="https://github.com/user-attachments/assets/61d089b0-53b3-48ed-8565-025ccaddc7a4" />
+<img width="1394" height="715" alt="Screenshot 2026-08-15 160158" src="https://github.com/user-attachments/assets/e4ac50a4-d850-4f25-a27a-617c8db3500e" />
+<img width="1397" height="712" alt="Screenshot 2026-08-15 155520" src="https://github.com/user-attachments/assets/237291a5-641e-4dd3-bfe7-369ba0fef2e7" />
 
 ## Installation
 

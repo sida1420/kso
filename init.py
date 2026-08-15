@@ -1,4 +1,9 @@
+
+from helper import install_dependencies
+
+install_dependencies()  # Your pip/subprocess install logic
 import numpy as np
+
 import random
 from classes import *
 import json

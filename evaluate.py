@@ -1,8 +1,10 @@
-import random
+
+from helper import install_dependencies
+
+install_dependencies()  # Your pip/subprocess install logic
 import numpy as np
 import math
 from classes import *
-from helper import *
 class Evaluator:
     def __init__(self, layout: Layout):
         self.layout=layout

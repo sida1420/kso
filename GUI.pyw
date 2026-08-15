@@ -8,9 +8,6 @@ import threading
 import tkinter as tk
 import traceback
 from tkinter import messagebox, ttk
-
-
-from classes import *
 from helper import *
 
 
@@ -1403,13 +1400,28 @@ class GUI(tk.Tk):
         """Start optimization subprocess."""
         try:
             cmd = [sys.executable, "-u", str(ROOT_DIR / "run.py")]
-            self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                text=True, bufsize=1, universal_newlines=True)
+
+            # Force the child Python process to use UTF-8 for stdout/stderr
+            env = os.environ.copy()
+            env["PYTHONIOENCODING"] = "utf-8"
+
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding="utf-8",      # decode pipe as UTF-8 in the GUI
+                errors="replace",      # safety: never crash on decode
+                bufsize=1,
+                env=env,
+            )
+
             self.start_button.config(state="disabled")
             self.stop_button.config(state="normal")
             self.run_output.config(state="normal")
             self.run_output.delete("1.0", tk.END)
             self.run_output.config(state="disabled")
+
             t = threading.Thread(target=self._read_process_output, daemon=True)
             t.start()
         except Exception as e:
@@ -1458,25 +1470,47 @@ class GUI(tk.Tk):
                 pass
 
     def _poll_queue(self):
-        """Poll output queue for subprocess messages."""
-        while not self.output_queue.empty():
+        """Poll output queue for subprocess messages.
+        Processes output in batches so the GUI stays responsive even in dev mode."""
+        MAX_PER_POLL = 150          # lines processed per 100 ms tick
+        MAX_BUFFER_LINES = 8000     # keep last N lines in the text widget
+        lines = []
+        stopped = False
+    
+        # 1. Pull a limited batch from the queue (never block the GUI)
+        for _ in range(MAX_PER_POLL):
             try:
                 msg = self.output_queue.get_nowait()
-                if msg is None:
-                    self.start_button.config(state="normal")
-                    self.stop_button.config(state="disabled")
-                    continue
-
-                self.run_output.config(state="normal")
-                self.run_output.insert(tk.END, msg + "\n")
-                self.run_output.see(tk.END)
-                self.run_output.config(state="disabled")
+                if msg is None:          # sentinel from the reader thread
+                    stopped = True
+                    break
+                lines.append(msg)
             except queue.Empty:
                 break
-        
+            
+        # 2. Update the widget once with the whole batch
+        if lines:
+            self.run_output.config(state="normal")
+    
+            # Trim old lines so the widget doesn't slow down over time
+            end_idx = self.run_output.index("end-1c")
+            current_lines = int(end_idx.split(".")[0])
+            if current_lines + len(lines) > MAX_BUFFER_LINES:
+                delete_up_to = current_lines + len(lines) - MAX_BUFFER_LINES
+                self.run_output.delete("1.0", f"{delete_up_to}.0")
+    
+            self.run_output.insert(tk.END, "\n".join(lines) + "\n")
+            self.run_output.see(tk.END)
+            self.run_output.config(state="disabled")
+    
+        # 3. Reset buttons if the process finished
+        if stopped:
+            self.start_button.config(state="normal")
+            self.stop_button.config(state="disabled")
+    
         self._poll_id = self.after(100, self._poll_queue)
-
-
+    
+    
     def _on_shift_press(self, event):
         """Handle shift key press."""
         self.shift_pressed = True

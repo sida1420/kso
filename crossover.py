@@ -1,4 +1,6 @@
 import random
+from helper import install_dependencies
+install_dependencies()  # Your pip/subprocess install logic
 import numpy as np
 from classes import Layout
 

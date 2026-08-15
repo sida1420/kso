@@ -1,8 +1,9 @@
-import random
-import heapq
-import math
+
+from helper import install_dependencies
+install_dependencies()
 import numpy as np
-from evaluate import apply_scale
+import random
+import math
 
 def selection(temperatures, replicas, evaluations, scores, candidates, candidate_evaluations, candidate_scores, elites, num_elites, population_size, generation_count):
     accept_count= np.zeros(population_size)

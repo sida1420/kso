@@ -12,7 +12,7 @@
         "right_thumb": 3
     },
     "generation_limit": 3000,
-    "dev_mode": false,
+    "dev_mode": true,
     "auto_generate_shift_home": 0.5,
     "population_size": 10
 }

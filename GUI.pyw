@@ -468,7 +468,6 @@ class GUI(tk.Tk):
 
         self.geometry("1400x720")
         self.minsize(1160,600)
-
         self._setup_theme()
         self.model=ConfigModel()
         self.shift_pressed=False
@@ -552,6 +551,24 @@ class GUI(tk.Tk):
         self.option_add("*TCombobox*Listbox.foreground", fg)
         self.option_add("*TCombobox*Listbox.selectBackground", select_bg)
         self.option_add("*TCombobox*Listbox.selectForeground", fg)
+                # Scrollbars — slim flat dark style
+        style.configure("TScrollbar",
+            background=accent_bg,      # thumb color
+            troughcolor=bg,            # track background
+            borderwidth=0,
+            arrowcolor=fg,
+            relief="flat",
+            width=10                   # slim modern look
+        )
+        style.map("TScrollbar",
+            background=[("active", active_bg), ("disabled", "#161920")],
+            arrowcolor=[("active", fg), ("disabled", "#555b6e")]
+        )
+        style.layout("TScrollbar", [
+            ("TScrollbar.trough", {"children": [
+                ("TScrollbar.thumb", {"expand": "1", "sticky": "ns"})
+            ], "sticky": "ns"})
+        ])
 
     def _setup_ui(self):
         """Setup 5-tab interface."""
@@ -833,10 +850,22 @@ class GUI(tk.Tk):
         self.stop_button.pack(side="left", padx=(4, 0))
         ttk.Button(toolbar, text="Open Output Folder", command=self._open_output_folder).pack(side="right")
         
-        self.run_output = tk.Text(frame, wrap="none", state="disabled", font=("Courier", 9), 
-                                bg="#0f1318", fg="#e6e6e6", relief="flat", highlightthickness=0)
-        self.run_output.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-    
+        # ── Output area with scrollbars ──────────────────────────────
+        output_frame = ttk.Frame(frame)
+        output_frame.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        
+        self.run_output = tk.Text(
+            output_frame, wrap="word", state="disabled", font=("Courier", 9),
+            bg="#0f1318", fg="#e6e6e6", relief="flat", highlightthickness=0
+        )
+        self.run_output.pack(side="left", fill="both", expand=True)
+        
+        # vertical scrollbar
+        self.run_scrollbar = ttk.Scrollbar(
+            output_frame, orient="vertical", command=self.run_output.yview
+        )
+        self.run_scrollbar.pack(side="right", fill="y")
+        self.run_output.configure(yscrollcommand=self.run_scrollbar.set)
     def _refresh_layout(self):
         key = self.layout_canvas.get_selected_key()
         if not key:
@@ -1471,43 +1500,43 @@ class GUI(tk.Tk):
 
     def _poll_queue(self):
         """Poll output queue for subprocess messages.
-        Processes output in batches so the GUI stays responsive even in dev mode."""
-        MAX_PER_POLL = 150          # lines processed per 100 ms tick
-        MAX_BUFFER_LINES = 8000     # keep last N lines in the text widget
+        Batches lines and enforces a max buffer so the widget never lags."""
+        MAX_PER_POLL = 150          # lines processed per tick (keeps GUI responsive)
+        MAX_BUFFER_LINES = 8000     # terminal-like scrollback limit
         lines = []
         stopped = False
-    
-        # 1. Pull a limited batch from the queue (never block the GUI)
+
+        # 1. Pull a limited batch from the queue
         for _ in range(MAX_PER_POLL):
             try:
                 msg = self.output_queue.get_nowait()
-                if msg is None:          # sentinel from the reader thread
+                if msg is None:      # sentinel from reader thread
                     stopped = True
                     break
                 lines.append(msg)
             except queue.Empty:
                 break
-            
-        # 2. Update the widget once with the whole batch
+
+        # 2. Update widget once with the whole batch
         if lines:
             self.run_output.config(state="normal")
-    
-            # Trim old lines so the widget doesn't slow down over time
+            self.run_output.insert(tk.END, "\n".join(lines) + "\n")
+
+            # 3. Trim old lines like a terminal (delete oldest first)
             end_idx = self.run_output.index("end-1c")
             current_lines = int(end_idx.split(".")[0])
-            if current_lines + len(lines) > MAX_BUFFER_LINES:
-                delete_up_to = current_lines + len(lines) - MAX_BUFFER_LINES
+            if current_lines > MAX_BUFFER_LINES:
+                delete_up_to = current_lines - MAX_BUFFER_LINES + 1
                 self.run_output.delete("1.0", f"{delete_up_to}.0")
-    
-            self.run_output.insert(tk.END, "\n".join(lines) + "\n")
+
             self.run_output.see(tk.END)
             self.run_output.config(state="disabled")
-    
-        # 3. Reset buttons if the process finished
+
+        # 4. Reset buttons if process finished
         if stopped:
             self.start_button.config(state="normal")
             self.stop_button.config(state="disabled")
-    
+
         self._poll_id = self.after(100, self._poll_queue)
     
     

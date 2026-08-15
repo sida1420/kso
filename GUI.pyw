@@ -632,9 +632,11 @@ class GUI(tk.Tk):
         f.pack(fill="x", padx=6, pady=2)
         ttk.Label(f, text="Snap:", width=10).pack(side="left")
         self.snap_var = tk.StringVar(value=str(self.layout_canvas.snap_step))
-        self.snap_var.trace_add("write", lambda *a: self._on_snap_changed())
+        self.snap_var.trace_add("write", lambda *a: self._validate_snap())
         self.snap_entry=ttk.Entry(f, textvariable=self.snap_var, width=20)
         self.snap_entry.pack(side="left", fill="x", expand=True)
+        self.snap_entry.bind("<FocusOut>", lambda *a: self._on_snap_changed())
+
 
         ttk.Checkbutton(editor, text="Active base", variable=self.layout_active_base, command=self._on_layout_active_changed).pack(anchor="w", padx=6, pady=2)
         ttk.Checkbutton(editor, text="Active shift", variable=self.layout_active_shift, command=self._on_layout_active_changed).pack(anchor="w", padx=6, pady=2)
@@ -891,6 +893,7 @@ class GUI(tk.Tk):
         key=self.layout_canvas.get_selected_key()
         name=self.layout_canvas.selected
         if not key:
+            self.layout_sel_entry.config(style="TEntry")
             return
         try:
             val = self.layout_sel_label.get().strip()
@@ -934,6 +937,7 @@ class GUI(tk.Tk):
         
         key = self.layout_canvas.get_selected_key()
         if not key:
+            self.layout_entries[fname].config(style="TEntry")
             return
         try:
             val = float(self.layout_fields[fname].get().strip() or 0)
@@ -1013,6 +1017,16 @@ class GUI(tk.Tk):
             self.model.available_shift_keys.discard(self.layout_canvas.selected)
         
         self.layout_canvas.redraw()
+    def _validate_snap(self):
+        try:
+            v = float(self.snap_var.get().strip())
+            if v <= 0:
+                raise ValueError(f"\nSNAP STEP CANNOT BE LESS OR EQUAL TO 0")
+            self.layout_canvas.snap_step = v
+            self.snap_entry.config(style="TEntry")
+        except Exception:
+            self.snap_entry.config(style="Invalid.TEntry")
+            return
 
     def _on_snap_changed(self):
         """Handle changes to snap step from the UI."""
@@ -1021,11 +1035,8 @@ class GUI(tk.Tk):
             if v <= 0:
                 self.snap_var.set(str(0.25))
             self.layout_canvas.snap_step = v
-            self.snap_entry.config(style="TEntry")
         except Exception:
-            self.snap_entry.config(style="Invalid.TEntry")
             return
-        self.layout_canvas.redraw()
 
     def _add_layout_key(self):
         """Add new key."""
@@ -1083,6 +1094,8 @@ class GUI(tk.Tk):
     def _on_fixed_changed(self, field=None):
         """Handle fixed key remapping changes."""
         if not self.fixed_canvas.selected:
+            self.fixed_base_entry.config(style="TEntry")
+            self.fixed_shift_entry.config(style="TEntry")
             return
         key = self.fixed_canvas.selected
         if field == "base":
@@ -1316,6 +1329,9 @@ class GUI(tk.Tk):
     def _on_keystroke_field_changed(self, fname):
         """Handle edits to the keystroke editor fields and update the model."""
         if not self.current_keystroke:
+            self.keystroke_entries["name"].config(style="TEntry")
+            self.keystroke_entries["weight"].config(style="TEntry")
+            self.keystroke_entries["keys"].config(style="TEntry")
             return
 
         # Read fields

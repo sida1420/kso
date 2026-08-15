@@ -867,6 +867,8 @@ class GUI(tk.Tk):
             return
         try:
             val = self.layout_sel_label.get().strip()
+            if not val:
+                raise ValueError(f"\nEmpty input")
             self.model._is_key_correct_type(val, "layout.txt")
 
             for n, k in self.model.organizer.keys.items():
@@ -1256,43 +1258,48 @@ class GUI(tk.Tk):
             return
 
         # Read fields
-        match fname:
-            case "name":
-                name = self.keystroke_fields["name"].get().strip()
-                if not name:
-                    return
-                old_name = self.current_keystroke
-                if name != old_name:
-                    self.model.keystrokes[name]=self.model.keystrokes.pop(old_name)
-                    self.current_keystroke = name
-            case "weight":
-                weight_s = self.keystroke_fields["weight"].get().strip()
-                if weight_s == "":
-                    weight = None
-                else:
-                    try:
+        try:
+            match fname:
+                case "name":
+                    name = self.keystroke_fields["name"].get().strip()
+                    if not name:
+                        raise ValueError(f"\nEmpty input")
+                    self.model._is_key_correct_type(name, "keystroke.json")
+                    old_name = self.current_keystroke
+                    if name != old_name:
+                        for n, v in self.model.keystrokes.items():
+                            if name==n:
+                                raise ValueError(f"\nDuplicate name")
+                        self.model.keystrokes={(name if n==old_name else n): v for n, v in self.model.keystrokes.items()}
+                        self.current_keystroke = name
+
+
+                    self.keystroke_entries[fname].config(style="TEntry")
+                case "weight":
+                    weight_s = self.keystroke_fields["weight"].get().strip()
+                    if weight_s == "":
+                        raise ValueError(f"\nEmpty input")
+                    else:
                         if "." in weight_s:
                             weight = float(weight_s)
                         else:
                             weight = int(weight_s)
                         self.model.keystrokes[self.current_keystroke]["weight"]=weight
-                        self.keystroke_entries["weight"].config(style="TEntry")
-                    except ValueError:
-                        self.keystroke_entries["weight"].config(style="Invalid.TEntry")
-            case "layer":
-                layer = self.keystroke_fields["layer"].get()
-                if layer not in {"base", "both", "any", "shift"}:
-                    return
-                self.model.keystrokes[self.current_keystroke]["layer"]=layer
-            case "keys":
-                try:
+                    self.keystroke_entries[fname].config(style="TEntry")
+                case "layer":
+                    layer = self.keystroke_fields["layer"].get()
+                    if layer not in {"base", "both", "any", "shift"}:
+                        return
+                    self.model.keystrokes[self.current_keystroke]["layer"]=layer
+                case "keys":
                     keys_s = self.keystroke_fields["keys"].get().strip()
                     keys_list = [k.strip() for k in keys_s.split(",") if k.strip()]
                     for k in keys_list:
                         self.model._is_key_correct_type(k, "keystroke.json")
-                    self.keystroke_entries["keys"].config(style="TEntry")
-                except ValueError:
-                    self.keystroke_entries["keys"].config(style="Invalid.TEntry")
+
+                    self.keystroke_entries[fname].config(style="TEntry")
+        except ValueError:
+            self.keystroke_entries[fname].config(style="Invalid.TEntry")
 
         self._refresh_keystrokes(preserve_name=self.current_keystroke)
 

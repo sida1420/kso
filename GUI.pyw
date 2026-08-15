@@ -78,8 +78,6 @@ class ConfigModel(Validator):
             else:
                 raise TypeError(f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN fixed_keys.json FILE HAS INCORRECT TYPE, IT NEEDS TO BE STRING OR LIST FOR CHAT NOT ({type(remap)})!")
 
-
-
             self._does_key_exist(key, self.organizer.keys,"fixed_keys.json","layout.txt")
         
         if self.chat is not None:
@@ -522,7 +520,7 @@ class GUI(tk.Tk):
 
         # Text Entries (insertcolor sets the text cursor color)
         style.configure("TEntry", fieldbackground=field_bg, background=field_bg, foreground=fg, insertcolor=fg)
-
+        style.configure("Invalid.TEntry", fieldbackground="#a85a5a", background=field_bg, foreground=fg, insertcolor=fg)
         # Checkbuttons (prevents flashing white on hover/click)
         style.configure("TCheckbutton", background=bg, foreground=fg)
         style.map("TCheckbutton",
@@ -592,10 +590,16 @@ class GUI(tk.Tk):
         editor = ttk.Labelframe(right, text="Selected Key")
         editor.pack(fill="x", pady=(0, 8))
 
-        self.layout_sel_label = ttk.Label(editor, text="None")
-        self.layout_sel_label.pack(anchor="w", padx=6, pady=4)
+        name_frame=ttk.Frame(editor)
+        name_frame.pack(anchor="w", padx=6, pady=4)
+        ttk.Label(name_frame, text="Name:", width=10).pack(side="left")
+        self.layout_sel_label = tk.StringVar()
+        self.layout_sel_label.trace_add("write", lambda *a: self._on_layout_key_name_changed())
+        self.layout_sel_entry=ttk.Entry(name_frame, textvariable=self.layout_sel_label, width=20)
+        self.layout_sel_entry.pack(side="left", fill="x", expand=True)
 
         self.layout_fields = {}
+        self.layout_entries = {}
         for fname, flabel in [("x", "X"), ("y", "Y"), ("width", "Width"), ("height", "Height"), ("offset", "Offset")]:
             f = ttk.Frame(editor)
             f.pack(fill="x", padx=6, pady=2)
@@ -603,7 +607,8 @@ class GUI(tk.Tk):
             var = tk.StringVar()
             var.trace_add("write", lambda *a, fn=fname: self._on_layout_field_changed(fn))
             self.layout_fields[fname] = var
-            ttk.Entry(f, textvariable=var, width=20).pack(side="left", fill="x", expand=True)
+            self.layout_entries[fname]=ttk.Entry(f, textvariable=var, width=20)
+            self.layout_entries[fname].pack(side="left", fill="x", expand=True)
 
         self.layout_active_base = tk.BooleanVar()
         self.layout_active_shift = tk.BooleanVar()
@@ -613,7 +618,8 @@ class GUI(tk.Tk):
         ttk.Label(f, text="Snap:", width=10).pack(side="left")
         self.snap_var = tk.StringVar(value=str(self.layout_canvas.snap_step))
         self.snap_var.trace_add("write", lambda *a: self._on_snap_changed())
-        ttk.Entry(f, textvariable=self.snap_var, width=20).pack(side="left", fill="x", expand=True)
+        self.snap_entry=ttk.Entry(f, textvariable=self.snap_var, width=20)
+        self.snap_entry.pack(side="left", fill="x", expand=True)
 
         ttk.Checkbutton(editor, text="Active base", variable=self.layout_active_base, command=self._on_layout_active_changed).pack(anchor="w", padx=6, pady=2)
         ttk.Checkbutton(editor, text="Active shift", variable=self.layout_active_shift, command=self._on_layout_active_changed).pack(anchor="w", padx=6, pady=2)
@@ -651,14 +657,16 @@ class GUI(tk.Tk):
         ttk.Label(f, text="Base:", width=10).pack(side="left")
         self.fixed_base_var = tk.StringVar()
         self.fixed_base_var.trace_add("write", lambda *a: self._on_fixed_changed("base"))
-        ttk.Entry(f, textvariable=self.fixed_base_var, width=20).pack(side="left", fill="x", expand=True)
+        self.fixed_base_entry=ttk.Entry(f, textvariable=self.fixed_base_var, width=20)
+        self.fixed_base_entry.pack(side="left", fill="x", expand=True)
         
         f = ttk.Frame(editor)
         f.pack(fill="x", padx=6, pady=2)
         ttk.Label(f, text="Shift:", width=10).pack(side="left")
         self.fixed_shift_var = tk.StringVar()
         self.fixed_shift_var.trace_add("write", lambda *a: self._on_fixed_changed("shift"))
-        ttk.Entry(f, textvariable=self.fixed_shift_var, width=20).pack(side="left", fill="x", expand=True)
+        self.fixed_shift_entry=ttk.Entry(f, textvariable=self.fixed_shift_var, width=20)
+        self.fixed_shift_entry.pack(side="left", fill="x", expand=True)
 
         # Chat identifier checkbox
         self.fixed_chat_var = tk.BooleanVar()
@@ -697,7 +705,7 @@ class GUI(tk.Tk):
         ttk.Label(f, text="Finger:", width=12).pack(side="left")
         self.finger_select_var = tk.StringVar()
         self.finger_select_var.trace_add("write", lambda *a: self._on_finger_selected())
-        self.finger_combo = ttk.Combobox(f, textvariable=self.finger_select_var, width=24)
+        self.finger_combo = ttk.Combobox(f, values=list(self.model.assigned_fingers.keys()), textvariable=self.finger_select_var, width=24)
         self.finger_combo.pack(side="left", fill="x", expand=True)
         
         self.home_key_var = tk.BooleanVar()
@@ -749,6 +757,7 @@ class GUI(tk.Tk):
 
 
         self.keystroke_fields = {}
+        self.keystroke_entries = {}
         for fname, flabel in [("name", "Name"), ("weight", "Weight"), ("layer", "Layer"), ("keys", "Keys")]:
             f = ttk.Frame(editor)
             f.pack(fill="x", padx=6, pady=2)
@@ -760,7 +769,8 @@ class GUI(tk.Tk):
                 combo = ttk.Combobox(f, textvariable=var, values=("any", "both", "base", "shift"), width=37)
                 combo.pack(side="left", fill="x", expand=True)
             else:
-                ttk.Entry(f, textvariable=var, width=40).pack(side="left", fill="x", expand=True)
+                self.keystroke_entries[fname]=ttk.Entry(f, textvariable=var, width=40)
+                self.keystroke_entries[fname].pack(side="left", fill="x", expand=True)
 
         self._refresh_keystrokes()
 
@@ -781,19 +791,22 @@ class GUI(tk.Tk):
         metric_editor.grid(row=1, column=0, columnspan=1, sticky="nsew", padx=8, pady=(0, 8))
 
         self.metric_option_fields={}
+        self.metric_option_entries={}
         for fname, flabel in [("finger_strain", "Finger strain"), ("travel_distance", "Travel distance"), ("use_count", "Use count"), ("bad_roll","Bad roll"),("finger_stretch","Finger stretch")]:
             f = ttk.Frame(metric_editor)
             f.pack(fill="x", padx=6, pady=2)
             ttk.Label(f, text=flabel + ":", width=25).pack(side="left")
             var = tk.StringVar()
             var.trace_add("write", lambda *a, fn=fname: self._on_metric_option_field_changed(fn))
-            ttk.Entry(f, textvariable=var, width=40).pack(side="left", fill="x", expand=True)
+            self.metric_option_entries[fname]=ttk.Entry(f, textvariable=var, width=40)
+            self.metric_option_entries[fname].pack(side="left", fill="x", expand=True)
             self.metric_option_fields[fname] = var
 
         mixed_editor = ttk.Labelframe(frame, text="Mixed")
         mixed_editor.grid(row=1, column=1, columnspan=1, sticky="nsew", padx=8, pady=(0, 8))
 
         self.mixed_option_fields = {}
+        self.mixed_option_entries= {}
         for fname, flabel in [("generation_limit", "Generation limit"), ("auto_generate_shift_home", "Auto generate shift home"), ("dev_mode", "Dev mode")]:
             f = ttk.Frame(mixed_editor)
             f.pack(fill="x", padx=6, pady=2)
@@ -805,7 +818,8 @@ class GUI(tk.Tk):
             else:
                 var = tk.StringVar()
                 var.trace_add("write", lambda *a, fn=fname: self._on_mixed_option_field_changed(fn))
-                ttk.Entry(f, textvariable=var, width=40).pack(side="left", fill="x", expand=True)
+                self.mixed_option_entries[fname]=ttk.Entry(f, textvariable=var, width=40)
+                self.mixed_option_entries[fname].pack(side="left", fill="x", expand=True)
             self.mixed_option_fields[fname] = var
         self._refresh_options()
 
@@ -825,12 +839,11 @@ class GUI(tk.Tk):
         self.run_output = tk.Text(frame, wrap="none", state="disabled", font=("Courier", 9), 
                                 bg="#0f1318", fg="#e6e6e6", relief="flat", highlightthickness=0)
         self.run_output.pack(fill="both", expand=True, padx=8, pady=(0, 8))
-
     
     def _refresh_layout(self):
         key = self.layout_canvas.get_selected_key()
         if not key:
-            self.layout_sel_label.config(text="None")
+            self.layout_sel_label.set("")
             for v in self.layout_fields.values():
                 v.set("")
             self.layout_active_base.set(False)
@@ -839,7 +852,7 @@ class GUI(tk.Tk):
             return
         self.delete_key_button.config(state="normal")
         
-        self.layout_sel_label.config(text=f"Selected: {self.layout_canvas.selected}")
+        self.layout_sel_label.set(self.layout_canvas.selected)
         self.layout_fields["x"].set(str(round(key._pos.x, 2)))
         self.layout_fields["y"].set(str(round(key._pos.y, 2)))
         self.layout_fields["width"].set(str(round(key._width, 2)))
@@ -847,6 +860,48 @@ class GUI(tk.Tk):
         self.layout_fields["offset"].set(str(round(key._offset, 2)))
         self.layout_active_base.set(self.layout_canvas.selected in self.model.available_keys)
         self.layout_active_shift.set(self.layout_canvas.selected in self.model.available_shift_keys)
+    def _on_layout_key_name_changed(self):
+        key=self.layout_canvas.get_selected_key()
+        name=self.layout_canvas.selected
+        if not key:
+            return
+        try:
+            val = self.layout_sel_label.get().strip()
+            self.model._is_key_correct_type(val, "layout.txt")
+
+            for n, k in self.model.organizer.keys.items():
+                if n==val and key!=k:
+                    raise ValueError(f"\nDuplicate key")
+
+            self.model.organizer.keys[val]=self.model.organizer.keys.pop(name)
+            if name in self.model.available_keys:
+                self.model.available_keys.discard(name)
+                self.model.available_keys.add(val)
+            if name in self.model.available_shift_keys:
+                self.model.available_shift_keys.discard(name)
+                self.model.available_shift_keys.add(val)
+            if name in self.model.fixed_keys:
+                self.model.fixed_keys[val]=self.model.fixed_keys.pop(name)
+            if name in self.model.fixed_shift_keys:
+                self.model.fixed_shift_keys[val]=self.model.fixed_shift_keys.pop(name)
+            
+            for finger, key in self.model.home_keys.items():
+                if name==key:
+                    self.model.home_keys[finger]=val
+                    break
+            for finger, keys in self.model.assigned_fingers.items():
+                if name in keys:
+                    keys.remove(name)
+                    keys.append(val)
+                    break
+            self.layout_canvas.set_selected(val)
+            self.layout_sel_entry.config(style="TEntry")
+        except ValueError as e:
+            self.layout_sel_entry.config(style="Invalid.TEntry")
+            
+        self.layout_canvas.redraw()
+
+
 
     def _on_layout_field_changed(self, fname):
         """Handle layout field edits."""
@@ -854,40 +909,32 @@ class GUI(tk.Tk):
         if not key:
             return
         try:
-            val = float(self.layout_fields[fname].get() or 0)
+            val = float(self.layout_fields[fname].get().strip() or 0)
             if fname == "x":
                 val=max(self.model.organizer.left_most_x,val)
-                if abs(key._pos.x - val) < 0.001:
-                    return
                 key.set_pos(Point(val,key._pos.y))
                 self.layout_fields["x"].set(str(round(val, 3)))
             elif fname == "y":
                 val=max(self.model.organizer.left_most_y,val)
-                if abs(key._pos.y - val) < 0.001:
-                    return
                 key.set_pos(Point(key._pos.x,val))
                 self.layout_fields["y"].set(str(round(val, 3)))
             elif fname == "width":
                 val=max(val,1)
-                if abs(key._width - val) < 0.001:
-                    return
-                key._width = val
                 self.layout_fields["width"].set(str(round(val, 3)))
+                key._width = val
             elif fname == "height":
                 val=max(val,1)
-                if abs(key._height - val) < 0.001:
-                    return
                 key._height = val
                 self.layout_fields["height"].set(str(round(val, 3)))
             elif fname == "offset":
                 val=max(-key._width/2,min(val,key._width/2))
-                if abs(key._offset - val) < 0.001:
-                    return
                 key._offset = val
                 self.layout_fields["offset"].set(str(round(val, 3)))
-            self.layout_canvas.redraw()
+            self.layout_entries[fname].config(style="TEntry")
         except ValueError:
+            self.layout_entries[fname].config(style="Invalid.TEntry")
             pass
+        self.layout_canvas.redraw()
 
     def _on_layout_active_changed(self):
         """Handle active base/shift checkbox changes."""
@@ -897,7 +944,6 @@ class GUI(tk.Tk):
             self.model.available_keys.add(self.layout_canvas.selected)
         else:
             self.model.available_keys.discard(self.layout_canvas.selected)
-        
         if self.layout_active_shift.get():
             self.model.available_shift_keys.add(self.layout_canvas.selected)
         else:
@@ -908,12 +954,15 @@ class GUI(tk.Tk):
     def _on_snap_changed(self):
         """Handle changes to snap step from the UI."""
         try:
-            v = float(self.snap_var.get())
+            v = float(self.snap_var.get().strip())
             if v <= 0:
-                return
+                self.snap_var.set(str(0.25))
             self.layout_canvas.snap_step = v
+            self.snap_entry.config(style="TEntry")
         except Exception:
+            self.snap_entry.config(style="Invalid.TEntry")
             return
+        self.layout_canvas.redraw()
 
     def _add_layout_key(self):
         """Add new key."""
@@ -973,20 +1022,29 @@ class GUI(tk.Tk):
         if not self.fixed_canvas.selected:
             return
         key = self.fixed_canvas.selected
-
         if field == "base":
-            base = self.fixed_base_var.get()
-            if base:
-                self.model.fixed_keys[key] = base
-            else:
-                self.model.fixed_keys.pop(key, None)
+            try:
+                base = self.fixed_base_var.get().strip()
+                self.model._is_key_correct_type(base, "fixed_keys.json")
+                if base:
+                    self.model.fixed_keys[key] = base
+                else:
+                    self.model.fixed_keys.pop(key, None)
+                self.fixed_base_entry.config(style="TEntry")
+            except ValueError:
+                self.fixed_base_entry.config(style="Invalid.TEntry")
 
         elif field == "shift":
-            shift = self.fixed_shift_var.get()
-            if shift:
-                self.model.fixed_shift_keys[key] = shift
-            else:
-                self.model.fixed_shift_keys.pop(key, None)
+            try:
+                shift = self.fixed_shift_var.get().strip()
+                self.model._is_key_correct_type(shift, "fixed_keys.json")
+                if shift:
+                    self.model.fixed_shift_keys[key] = shift
+                else:
+                    self.model.fixed_shift_keys.pop(key, None)
+                self.fixed_shift_entry.config(style="TEntry")
+            except ValueError:
+                self.fixed_shift_entry.config(style="Invalid.TEntry")
 
         elif field == "chat":
             chat = self.fixed_chat_var.get()
@@ -995,7 +1053,7 @@ class GUI(tk.Tk):
             else:
                 if self.model.chat == key:
                     self.model.chat = None
-
+        
         self.fixed_canvas.redraw()
 
     def _remove_fixed(self):
@@ -1031,7 +1089,6 @@ class GUI(tk.Tk):
     def _refresh_finger(self):
         """Refresh finger assignment tab."""
         key_name = self.finger_canvas.selected
-        self.finger_combo['values'] = sorted(self.model.assigned_fingers.keys())
         
         if not key_name:
             self.finger_sel_label.config(text="None")
@@ -1044,15 +1101,15 @@ class GUI(tk.Tk):
         self.finger_sel_label.config(text=f"Selected: {key_name}")
         assigned = [f for f, keys in self.model.assigned_fingers.items() if key_name in keys]
         self.finger_select_var.set(assigned[0] if assigned else "")
-        current_finger = self.finger_select_var.get()
+        current_finger = self.finger_select_var.get().strip()
         self.home_key_var.set(self.model.home_keys.get(current_finger) == key_name)
 
     def _on_finger_selected(self):
         """Handle finger combo selection."""
         if not self.finger_canvas.selected:
             return
-        finger = self.finger_select_var.get()
-        if not finger:
+        finger = self.finger_select_var.get().strip()
+        if not finger or finger not in self.model.assigned_fingers.keys():
             return
         
         # Already assigned to this finger - just sync home key checkbox
@@ -1084,7 +1141,7 @@ class GUI(tk.Tk):
         """Handle home key checkbox."""
         if not self.finger_canvas.selected:
             return
-        finger = self.finger_select_var.get()
+        finger = self.finger_select_var.get().strip()
         if not finger:
             return
         
@@ -1199,45 +1256,45 @@ class GUI(tk.Tk):
             return
 
         # Read fields
-        name = self.keystroke_fields["name"].get().strip()
-        weight_s = self.keystroke_fields["weight"].get().strip()
-        layer = self.keystroke_fields["layer"].get().strip() or "any"
-        keys_s = self.keystroke_fields["keys"].get().strip()
-
-        if not name:
-            return
-
-        # parse keys
-        keys_list = [k.strip() for k in keys_s.split(",") if k.strip()]
-
-        # parse weight
-        if weight_s == "":
-            weight = None
-        else:
-            try:
-                if "." in weight_s:
-                    weight = float(weight_s)
+        match fname:
+            case "name":
+                name = self.keystroke_fields["name"].get().strip()
+                if not name:
+                    return
+                old_name = self.current_keystroke
+                if name != old_name:
+                    self.model.keystrokes[name]=self.model.keystrokes.pop(old_name)
+                    self.current_keystroke = name
+            case "weight":
+                weight_s = self.keystroke_fields["weight"].get().strip()
+                if weight_s == "":
+                    weight = None
                 else:
-                    weight = int(weight_s)
-            except Exception:
-                weight = None
+                    try:
+                        if "." in weight_s:
+                            weight = float(weight_s)
+                        else:
+                            weight = int(weight_s)
+                        self.model.keystrokes[self.current_keystroke]["weight"]=weight
+                        self.keystroke_entries["weight"].config(style="TEntry")
+                    except ValueError:
+                        self.keystroke_entries["weight"].config(style="Invalid.TEntry")
+            case "layer":
+                layer = self.keystroke_fields["layer"].get()
+                if layer not in {"base", "both", "any", "shift"}:
+                    return
+                self.model.keystrokes[self.current_keystroke]["layer"]=layer
+            case "keys":
+                try:
+                    keys_s = self.keystroke_fields["keys"].get().strip()
+                    keys_list = [k.strip() for k in keys_s.split(",") if k.strip()]
+                    for k in keys_list:
+                        self.model._is_key_correct_type(k, "keystroke.json")
+                    self.keystroke_entries["keys"].config(style="TEntry")
+                except ValueError:
+                    self.keystroke_entries["keys"].config(style="Invalid.TEntry")
 
-        values = {"keys": keys_list, "weight": weight, "layer": layer}
-
-        old_name = self.current_keystroke
-        if name != old_name:
-            self.model.keystrokes.pop(old_name, None)
-            self.model.keystrokes[name] = values
-            self.current_keystroke = name
-        else:
-            old = self.model.keystrokes.get(name, {})
-            if (old.get("keys") == keys_list and 
-                old.get("weight") == weight and 
-                old.get("layer", "any") == layer):
-                return
-            self.model.keystrokes[name] = values
-
-        self._refresh_keystrokes(preserve_name=name)
+        self._refresh_keystrokes(preserve_name=self.current_keystroke)
 
     def _reload_keystrokes(self):
         """Reload keystrokes from files."""
@@ -1297,32 +1354,43 @@ class GUI(tk.Tk):
         
         if not field:
             return
+        try:
+            val=float(self.metric_option_fields[field].get().strip())
+            if val<0:
+                val=0
+                self.metric_option_fields[field].set(str(val))
+            self.model.target_metrics[field]=val
+            self.metric_option_entries[field].config(style="TEntry")
+        except ValueError:
+            self.metric_option_entries[field].config(style="Invalid.TEntry")
 
-        val=float(self.metric_option_fields[field].get().strip())
-        if val<0:
-            val=0
-            self.metric_option_fields[field].set(str(val))
-        self.model.target_metrics[field]=val
 
     def _on_mixed_option_field_changed(self, field=None):
         
         val=self.mixed_option_fields[field].get()
-        match field:
-            case "generation_limit":
-                val=int(val)
-                if val<0:
-                    val=0
-                    self.mixed_option_fields[field].set(str(val))
-            case "auto_generate_shift_home":
-                val=float(val)
-                if val<0 or val>1:
-                    val=min(max(0,val),1)
-                    self.mixed_option_fields[field].set(str(val))
-            case "dev_mode":
-                val=bool(val) 
-            case _:
-                return            
-        self.model.settings[field]=val
+        try:
+            match field:
+                case "generation_limit":
+                    val=int(val.strip())
+                    if val<0:
+                        val=0
+                        self.mixed_option_fields[field].set(str(val))
+
+                    self.mixed_option_entries[field].config(style="TEntry")
+                case "auto_generate_shift_home":
+                    val=float(val.strip())
+                    if val<0 or val>1:
+                        val=min(max(0,val),1)
+                        self.mixed_option_fields[field].set(str(val))
+                        
+                    self.mixed_option_entries[field].config(style="TEntry")
+                case "dev_mode":
+                    val=bool(val) 
+                case _:
+                    return            
+            self.model.settings[field]=val
+        except ValueError:
+            self.mixed_option_entries[field].config(style="Invalid.TEntry")
 
     def _start_optimization(self):
         """Start optimization subprocess."""

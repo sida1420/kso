@@ -5,6 +5,9 @@ ROOT_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = ROOT_DIR / "config"
 OUTPUT_DIR = ROOT_DIR / "output"
 
+def has_no_whitespace(text: str) -> bool:
+    return not any(char.isspace() for char in text)
+
 def read_json(file_name):
     """Read JSON file."""
     try:

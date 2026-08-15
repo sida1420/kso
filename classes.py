@@ -87,12 +87,15 @@ class Validator:
         self.finger2idx={finger: idx for idx, finger in enumerate(self.idx2finger)}
     def _does_key_exist(self,key: str, container: dict, file, root_file):
         if key not in container:
-            raise ValueError(f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN {file} FILE DOESN'T APPEAR IN {root_file} FILE!")
+            raise ValueError(f"\nKEY [{key.upper()}] YOU ASSIGNED IN {file} FILE DOESN'T APPEAR IN {root_file} FILE!")
         return True
 
     def _is_key_correct_type(self,key: str, file):
         if not isinstance(key,str):
-            raise TypeError(f"\nKEY SLOT [{key.upper()}] YOU ASSIGNED IN {file} FILE HAS INCORRECT TYPE, IT NEEDS TO BE STRING NOT ({type(key)})!")
+            raise TypeError(f"\nKEY [{key.upper()}] YOU ASSIGNED IN {file} FILE HAS INCORRECT TYPE, IT NEEDS TO BE STRING NOT ({type(key)})!")
+        if not has_no_whitespace(key):
+            raise ValueError(f"\nKEY [{key.upper()}] YOU ASSIGNED IN {file} FILE HAS INCORRECT FORMAT, MAYBE IT CONTAINS WHITESPACES!")
+
         return True
     def _validate_finger(self, finger, file):
         if finger not in self.finger2idx:

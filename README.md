@@ -52,8 +52,8 @@ The algorithm runs for 3000 generations by default. Results are saved as SVG ima
 - **Keystrokes:** Use `Keystroke` tab (`config/keystrokes.json`) to define your own key sequences and weights.
 - **Which key to optimize**: Use `Layout` tab (`config/available_keys.txt`) to define what key slot is needed for optimize, and use `Fixed` tab (`config/fixed_keys.json`) to define what key slot can't be used.
 - **Target priorities:** Use `Options` tab (`config/target_metrics.json`) to change which metric matter most to you.
-- **Which finger to press a key**: Use `Finger` tab (`config/assigned_fingers.json`)
-- **Natural finger positions**: Use `Finger` tab (`home_keys.json`) to change your start finger positions for each keystroke (Ideally your movement keys).
+- **Which finger to press a key**: Use `Finger Assignment` tab (`config/assigned_fingers.json`)
+- **Natural finger positions**: Use `Finger Assignment` tab (`home_keys.json`) to change your start finger positions for each keystroke (Ideally your movement keys).
 - **Layout:** Edit `Layout` tab (`config/layout.txt` and `config/custom_keys.json`) to change the physical keyboard shape.
 
 ## Metrics

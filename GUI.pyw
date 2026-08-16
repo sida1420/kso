@@ -42,7 +42,6 @@ class ConfigModel(Validator):
     def save_layout(self, save_available_keys=False):
         if save_available_keys:
             self.organizer.save(available_keys_set=self.available_keys, available_shift_keys_set=self.available_shift_keys)
-
         else:
             self.organizer.save()
 
@@ -395,10 +394,12 @@ class KeyboardCanvas(tk.Canvas):
 
         new_x = max(self.model.organizer.left_most_x, self.snap(val_x))
         new_y = max(self.model.organizer.left_most_y, self.snap(val_y))
+        new_pos=Point(new_x,new_y)
 
-        key.set_pos(Point(new_x,new_y))
-        self.redraw()
-        self.event_generate("<<KeySlotMoved>>")
+        if key._pos!=new_pos:
+            self.event_generate("<<KeySlotMoved>>")
+            key.set_pos(new_pos)
+            self.redraw()
 
     def on_release(self, event):
         did_drag = self.dragging
@@ -476,6 +477,13 @@ class GUI(tk.Tk):
         self.current_keystroke = None
         self.new_selected_keystroke= None
         self._poll_id=None
+
+
+        self.unsaved_layout=False
+        self.unsaved_fixed=False
+        self.unsaved_keystrokes=False
+        self.unsaved_finger=False
+        self.unsaved_options=False
 
         self._setup_ui()
 
@@ -576,6 +584,8 @@ class GUI(tk.Tk):
 
         self.notebook.pack(fill="both",expand=True, padx=8, pady=8)
 
+        self.tabs={}
+
         self._create_layout_tab()
         self._create_fixed_tab()
         self._create_finger_tab()
@@ -589,7 +599,8 @@ class GUI(tk.Tk):
     def _create_layout_tab(self):
 
         frame = ttk.Frame(self.notebook)
-        self.notebook.add(frame, text="Layout")        
+        self.notebook.add(frame, text="Layout")   
+        self.tabs["layout"]=frame
         left = ttk.Frame(frame)
         left.pack(side="left", fill="both", expand=True, padx=(0, 8))
         right = ttk.Frame(frame)
@@ -599,7 +610,7 @@ class GUI(tk.Tk):
 
         self.layout_canvas.pack(fill="both", expand=True)
         self.layout_canvas.bind("<<KeySlotSelected>>", lambda e: self._refresh_layout())
-        self.layout_canvas.bind("<<KeySlotMoved>>", lambda e: self._refresh_layout())
+        self.layout_canvas.bind("<<KeySlotMoved>>", lambda e: self._refresh_layout(True))
 
         editor = ttk.Labelframe(right, text="Selected Key")
         editor.pack(fill="x", pady=(0, 8))
@@ -652,6 +663,7 @@ class GUI(tk.Tk):
 
         frame = ttk.Frame(self.notebook)
         self.notebook.add(frame, text="Fixed Keys")
+        self.tabs["fixed"]=frame
 
         left = ttk.Frame(frame)
         left.pack(side="left", fill="both", expand=True, padx=(0, 8))
@@ -701,6 +713,7 @@ class GUI(tk.Tk):
         """Finger assignment tab."""
         frame = ttk.Frame(self.notebook)
         self.notebook.add(frame, text="Finger Assignment")
+        self.tabs["finger"]=frame
         
         left = ttk.Frame(frame)
         left.pack(side="left", fill="both", expand=True, padx=(0, 8))
@@ -748,6 +761,7 @@ class GUI(tk.Tk):
         """Keystrokes editor tab."""
         frame = ttk.Frame(self.notebook)
         self.notebook.add(frame, text="Keystrokes")
+        self.tabs["keystrokes"]=frame
         
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill="x", padx=8, pady=8)
@@ -799,6 +813,7 @@ class GUI(tk.Tk):
         frame.rowconfigure(1, weight=1)
 
         self.notebook.add(frame, text="Options")
+        self.tabs["options"]=frame
         toolbar = ttk.Frame(frame)
         toolbar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=8, pady=8)        
         ttk.Button(toolbar, text="Reload", command=self._reload_options).pack(side="left")
@@ -844,6 +859,7 @@ class GUI(tk.Tk):
         """Optimization runner tab."""
         frame = ttk.Frame(self.notebook)
         self.notebook.add(frame, text="Run")
+        self.tabs["run"]=frame
         
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill="x", padx=8, pady=8)
@@ -869,8 +885,15 @@ class GUI(tk.Tk):
         )
         self.run_scrollbar.pack(side="right", fill="y")
         self.run_output.configure(yscrollcommand=self.run_scrollbar.set)
-    def _refresh_layout(self):
+    def _refresh_layout(self, modified=False):
         key = self.layout_canvas.get_selected_key()
+
+        if self.unsaved_layout or modified:
+            self.unsaved_layout=True
+            self.notebook.tab(self.tabs["layout"], text="Layout*")
+        else:
+            self.notebook.tab(self.tabs["layout"], text="Layout")
+
         if not key:
             self.layout_sel_label.set("")
             for v in self.layout_fields.values():
@@ -884,9 +907,9 @@ class GUI(tk.Tk):
         self.layout_sel_label.set(self.layout_canvas.selected)
         self.layout_fields["x"].set(str(round(key._pos.x, 3)))
         self.layout_fields["y"].set(str(round(key._pos.y, 3)))
-        self.layout_fields["width"].set(str(round(key._width, 3)))
-        self.layout_fields["height"].set(str(round(key._height, 3)))
-        self.layout_fields["offset"].set(str(round(key._offset, 3)))
+        self.layout_fields["width"].set(str(round(key._width or 1.0, 3)))
+        self.layout_fields["height"].set(str(round(key._height or 1.0, 3)))
+        self.layout_fields["offset"].set(str(round(key._offset or 0.0, 3)))
         self.layout_active_base.set(self.layout_canvas.selected in self.model.available_keys)
         self.layout_active_shift.set(self.layout_canvas.selected in self.model.available_shift_keys)
     def _on_layout_key_name_changed(self):
@@ -930,7 +953,10 @@ class GUI(tk.Tk):
             self.layout_sel_entry.config(style="TEntry")
         except ValueError as e:
             self.layout_sel_entry.config(style="Invalid.TEntry")
-            
+            return
+        if name!=self.layout_canvas.selected:
+            self.unsaved_layout=True
+            self.notebook.tab(self.tabs["layout"], text="Layout*")
         self.layout_canvas.redraw()
 
     def _validate_layout_field(self, fname):
@@ -939,32 +965,54 @@ class GUI(tk.Tk):
         if not key:
             self.layout_entries[fname].config(style="TEntry")
             return
+        temp_key=key.copy()
         try:
-            val = float(self.layout_fields[fname].get().strip() or 0)
+            val = self.layout_fields[fname].get().strip()
             if fname == "x":
+                if not val:
+                    raise ValueError(f"\nEmpty input")
+                val=float(val)
                 if val<self.model.organizer.left_most_x:
                     raise ValueError(f"\nX IS TOO SMALL")
                 key.set_pos(Point(val,key._pos.y))
             elif fname == "y":
+                if not val:
+                    raise ValueError(f"\nEmpty input")
+                val=float(val)
                 if val<self.model.organizer.left_most_y:
                     raise ValueError(f"\nY IS TOO SMALL")
                 key.set_pos(Point(key._pos.x,val))
             elif fname == "width":
-                if val<1:
-                    raise ValueError(f"\nWIDTH MUST NOT BE SMALLER THAN 1")
+                if not val:
+                    val=1.0
+                else:
+                    val=float(val)
+                    if val<1:
+                        raise ValueError(f"\nWIDTH MUST NOT BE SMALLER THAN 1")
                 key._width = val
             elif fname == "height":
-                if val<1:
-                    raise ValueError(f"\nHEIGHT MUST NOT BE SMALLER THAN 1")
+                if not val:
+                    val=1.0
+                else:
+                    val=float(val)
+                    if val<1:
+                        raise ValueError(f"\nHEIGHT MUST NOT BE SMALLER THAN 1")
                 key._height = val
             elif fname == "offset":
-                if val<-key._width/2 and val<key._width/2:
-                    raise ValueError(f"\nOFFSET MUST BE WITHIN THE KEY")
+                if not val:
+                    val=0.0
+                else:
+                    val=float(val)
+                    if val<-key._width/2 and val<key._width/2:
+                        raise ValueError(f"\nOFFSET MUST BE WITHIN THE KEY")
                 key._offset = val
             self.layout_entries[fname].config(style="TEntry")
         except ValueError:
             self.layout_entries[fname].config(style="Invalid.TEntry")
-            pass
+            return
+        if temp_key!=key:
+            self.unsaved_layout=True
+            self.notebook.tab(self.tabs["layout"], text="Layout*")
         self.layout_canvas.redraw()
 
     def _on_layout_field_changed(self, fname):
@@ -973,50 +1021,81 @@ class GUI(tk.Tk):
         if not key:
             return
         try:
-            val = float(self.layout_fields[fname].get().strip() or 0)
+            val = self.layout_fields[fname].get().strip()
             if fname == "x":
+                if not val:
+                    raise ValueError(f"\nEmpty input")
+                val=float(val)
                 if val<self.model.organizer.left_most_x:
                     val=self.model.organizer.left_most_x
                     self.layout_fields[fname].set(str(round(val,3)))
                 key.set_pos(Point(val,key._pos.y))
             elif fname == "y":
+                if not val:
+                    raise ValueError(f"\nEmpty input")
+                val=float(val)
                 if val<self.model.organizer.left_most_y:
                     val=self.model.organizer.left_most_y
                     self.layout_fields[fname].set(str(round(val,3)))
                 key.set_pos(Point(key._pos.x,val))
             elif fname == "width":
-                if val<1:
+                if not val:
                     val=1.0
-                    self.layout_fields[fname].set(str(round(val,3)))
+                    self.layout_fields[fname].set(str(val))
+                else:
+                    val=float(val)
+                    if val<1:
+                        val=1.0
+                        self.layout_fields[fname].set(str(val))
                 key._width = val
             elif fname == "height":
-                if val<1:
+                if not val:
                     val=1.0
-                    self.layout_fields[fname].set(str(round(val,3)))
+                    self.layout_fields[fname].set(str(val))
+                else:
+                    val=float(val)
+                    if val<1:
+                        val=1.0
+                        self.layout_fields[fname].set(str(val))
                 key._height = val
             elif fname == "offset":
-                if val<-key._width/2 and val<key._width/2:
-                    val=max(-key._width/2,min(val,key._width/2))
-                    self.layout_fields[fname].set(str(round(val,3)))
+                if not val:
+                    val=0.0
+                    self.layout_fields[fname].set(str(val))
+                else:
+                    val=float(val)
+                    if val<-key._width/2 and val<key._width/2:
+                        val=max(-key._width/2,min(val,key._width/2))
+                        self.layout_fields[fname].set(str(round(val,3)))
                 key._offset = val
         except ValueError:
-            pass
+            return
         self.layout_canvas.redraw()
 
     def _on_layout_active_changed(self):
         """Handle active base/shift checkbox changes."""
         if not self.layout_canvas.selected:
             return
+        size=len(self.model.available_keys)
+        changed=False
         if self.layout_active_base.get():
             self.model.available_keys.add(self.layout_canvas.selected)
         else:
             self.model.available_keys.discard(self.layout_canvas.selected)
+        if size!=len(self.model.available_keys):
+            changed=True
+        size=len(self.model.available_shift_keys)
         if self.layout_active_shift.get():
             self.model.available_shift_keys.add(self.layout_canvas.selected)
         else:
             self.model.available_shift_keys.discard(self.layout_canvas.selected)
-        
+        if size!=len(self.model.available_shift_keys):
+            changed=True
+        if changed:
+            self.unsaved_layout=True
+            self.notebook.tab(self.tabs["layout"], text="Layout*")
         self.layout_canvas.redraw()
+    
     def _validate_snap(self):
         try:
             v = float(self.snap_var.get().strip())
@@ -1042,6 +1121,7 @@ class GUI(tk.Tk):
         """Add new key."""
         new_name = self.model.add_key()
         self.layout_canvas.set_selected(new_name)
+        self.unsaved_layout=True
         self._refresh_layout()
         self.layout_canvas.redraw()
 
@@ -1052,8 +1132,9 @@ class GUI(tk.Tk):
             self.model.available_keys.discard(self.layout_canvas.selected)
             self.model.available_shift_keys.discard(self.layout_canvas.selected)
             self.layout_canvas.selected = None
-            self.layout_canvas.redraw()
+            self.unsaved_layout=True
             self._refresh_layout()
+            self.layout_canvas.redraw()
 
     def _reload_layout(self):
         """Reload layout from files."""
@@ -1061,20 +1142,29 @@ class GUI(tk.Tk):
             self.model.load_layout()
             self.model.load_available_keys()
             self.layout_canvas.set_selected(None)
+            self.unsaved_layout=False
             self.layout_canvas.redraw()
             self._refresh_layout()
         except Exception as e:
             messagebox.showerror("Error", "Failed to reload:\n" + traceback.format_exc())
 
-    def _save_layout(self):
+    def _save_layout(self, show_message=True):
         try:
             self.model.save_layout(save_available_keys=True)
-            messagebox.showinfo("Success", "Layout saved!")
+            self.unsaved_layout=False
+            self.notebook.tab(self.tabs["layout"], text="Layout")
+            if show_message: messagebox.showinfo("Success", "Layout saved!")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to save: {e}")
+            messagebox.showerror("Error", f"Failed to save layout: {e}")
     def _refresh_fixed(self):
         """Refresh fixed keys tab."""
         key_name = self.fixed_canvas.selected
+        if self.unsaved_fixed:
+            self.notebook.tab(self.tabs["fixed"], text="Fixed Keys*")
+        else:
+            self.notebook.tab(self.tabs["fixed"], text="Fixed Keys")
+
+
         if not key_name:
             self.fixed_sel_label.config(text="None")
             self.fixed_base_var.set("")
@@ -1098,14 +1188,19 @@ class GUI(tk.Tk):
             self.fixed_shift_entry.config(style="TEntry")
             return
         key = self.fixed_canvas.selected
+        changed=False
         if field == "base":
             try:
                 base = self.fixed_base_var.get().strip()
                 self.model._is_key_correct_type(base, "fixed_keys.json")
+                temp_value=self.model.fixed_keys.get(key, None)
                 if base:
                     self.model.fixed_keys[key] = base
                 else:
                     self.model.fixed_keys.pop(key, None)
+
+                if temp_value!=self.model.fixed_keys.get(key,None):
+                    changed=True
                 self.fixed_base_entry.config(style="TEntry")
             except ValueError:
                 self.fixed_base_entry.config(style="Invalid.TEntry")
@@ -1114,22 +1209,32 @@ class GUI(tk.Tk):
             try:
                 shift = self.fixed_shift_var.get().strip()
                 self.model._is_key_correct_type(shift, "fixed_keys.json")
+                temp_value=self.model.fixed_shift_keys.get(key, None)
                 if shift:
                     self.model.fixed_shift_keys[key] = shift
                 else:
                     self.model.fixed_shift_keys.pop(key, None)
+                if temp_value!=self.model.fixed_shift_keys.get(key,None):
+                    changed=True
                 self.fixed_shift_entry.config(style="TEntry")
             except ValueError:
                 self.fixed_shift_entry.config(style="Invalid.TEntry")
 
         elif field == "chat":
             chat = self.fixed_chat_var.get()
+            temp_chat=self.model.chat
             if chat:
                 self.model.chat = key
+                
             else:
                 if self.model.chat == key:
                     self.model.chat = None
-        
+            if temp_chat!=self.model.chat:
+                changed=True
+        if changed:
+            self.unsaved_fixed=True
+            self.notebook.tab(self.tabs["fixed"], text="Fixed Keys*")
+
         self.fixed_canvas.redraw()
 
     def _remove_fixed(self):
@@ -1142,6 +1247,8 @@ class GUI(tk.Tk):
             self.fixed_base_var.set("")
             self.fixed_shift_var.set("")
             self.fixed_chat_var.set(False)
+            self.unsaved_fixed=True
+            self.notebook.tab(self.tabs["fixed"], text="Fixed Keys*")
             self.fixed_canvas.redraw()
 
     def _reload_fixed(self):
@@ -1149,22 +1256,29 @@ class GUI(tk.Tk):
         try:
             self.model.load_fixed_keys()
             self.fixed_canvas.selected = None
+            self.unsaved_fixed=False
             self.fixed_canvas.redraw()
             self._refresh_fixed()
         except Exception as e:
             messagebox.showerror("Error", f"Failed: {e}")
     
-    def _save_fixed(self):
+    def _save_fixed(self, show_message=True):
         """Save fixed keys to files."""
         try:
             self.model.save_fixed_keys()
-            messagebox.showinfo("Success", "Fixed keys saved!")
+            self.unsaved_fixed=True
+            self.notebook.tab(self.tabs["fixed"], text="Fixed Keys")
+            if show_message: messagebox.showinfo("Success", "Fixed keys saved!")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed: {e}")
+            messagebox.showerror("Error", f"Failed to save fixed keys: {e}")
 
     def _refresh_finger(self):
         """Refresh finger assignment tab."""
         key_name = self.finger_canvas.selected
+        if self.unsaved_finger:
+            self.notebook.tab(self.tabs["finger"], text="Finger Assignment*")
+        else:
+            self.notebook.tab(self.tabs["finger"], text="Finger Assignment")
         
         if not key_name:
             self.finger_sel_label.config(text="None")
@@ -1193,6 +1307,8 @@ class GUI(tk.Tk):
             is_home = self.model.home_keys.get(finger) == self.finger_canvas.selected
             self.home_key_var.set(is_home)
             return
+
+        size=len(self.model.assigned_fingers.get(finger, []))
         
         # Remove from old finger
         for f, keys in self.model.assigned_fingers.items():
@@ -1210,7 +1326,11 @@ class GUI(tk.Tk):
         # Sync home key checkbox for new finger
         is_home = self.model.home_keys.get(finger) == self.finger_canvas.selected
         self.home_key_var.set(is_home)
-        
+
+        if size!=len(self.model.assigned_fingers.get(finger, [])):
+            self.unsaved_finger=True
+            self.notebook.tab(self.tabs["finger"], text="Finger Assignment*")
+
         self.finger_canvas.redraw()
 
     def _on_home_key_changed(self):
@@ -1218,9 +1338,9 @@ class GUI(tk.Tk):
         if not self.finger_canvas.selected:
             return
         finger = self.finger_select_var.get().strip()
-        if not finger:
+        if not finger or finger not in self.model.assigned_fingers:
             return
-        
+        temp_key=self.model.home_keys.get(finger,None)
         is_home = self.model.home_keys.get(finger) == self.finger_canvas.selected
         
         if self.home_key_var.get():
@@ -1229,6 +1349,11 @@ class GUI(tk.Tk):
         else:
             if is_home:
                 self.model.home_keys.pop(finger, None)
+
+        if temp_key!=self.model.home_keys.get(finger,None):
+            self.unsaved_finger=True
+            self.notebook.tab(self.tabs["finger"], text="Finger Assignment*")
+
         
         self.finger_canvas.redraw()
 
@@ -1245,6 +1370,8 @@ class GUI(tk.Tk):
                 self.model.home_keys.pop(f, None)
             self.finger_select_var.set("")
             self.home_key_var.set(False)
+            self.unsaved_finger=True
+            self.notebook.tab(self.tabs["finger"], text="Finger Assignment*")
             self.finger_canvas.redraw()
 
     def _reload_finger(self):
@@ -1252,23 +1379,30 @@ class GUI(tk.Tk):
         try:
             self.model.load_assigned_fingers()
             self.finger_canvas.selected = None
+            self.unsaved_finger=False
             self.finger_canvas.redraw()
             self._refresh_finger()
         except Exception as e:
             messagebox.showerror("Error", f"Failed: {e}")
 
     
-    def _save_finger(self):
+    def _save_finger(self, show_message=True):
         """Save finger assignments to files."""
         try:
             self.model.save_assigned_fingers()
-            messagebox.showinfo("Success", "Finger assignments saved!")
+            self.unsaved_finger=False
+            self.notebook.tab(self.tabs["finger"], text="Finger Assignment")
+            if show_message: messagebox.showinfo("Success", "Finger assignments saved!")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed: {e}")
+            messagebox.showerror("Error", f"Failed to save finger assignment: {e}")
 
     def _refresh_keystrokes(self, preserve_name=None):
         """Refresh keystrokes treeview."""
         selected_name = preserve_name
+        if self.unsaved_keystrokes:
+            self.notebook.tab(self.tabs["keystrokes"], text="Keystrokes*")
+        else:
+            self.notebook.tab(self.tabs["keystrokes"], text="Keystrokes")
         if selected_name is None:
             if self.new_selected_keystroke:
                 selected_name=self.new_selected_keystroke
@@ -1283,8 +1417,8 @@ class GUI(tk.Tk):
         self.keystroke_tree.delete(*self.keystroke_tree.get_children())
         for name, data in self.model.keystrokes.items():
             keys = ", ".join(data.get("keys", []))
-            weight = data.get("weight", "")
-            layer = data.get("layer", "")
+            weight = data.get("weight", "avg") or "avg"
+            layer = data.get("layer", "any")
             self.keystroke_tree.insert("", tk.END, values=(name, weight, layer, keys))
         
         if selected_name:
@@ -1321,7 +1455,7 @@ class GUI(tk.Tk):
 
         self.current_keystroke = None
         self.keystroke_fields["name"].set(name)
-        self.keystroke_fields["weight"].set(str(weight) if weight is not None else "")
+        self.keystroke_fields["weight"].set(str(weight) if weight is not None else "avg")
         self.keystroke_fields["layer"].set(layer)
         self.keystroke_fields["keys"].set(keys)
         self.current_keystroke = name
@@ -1335,6 +1469,7 @@ class GUI(tk.Tk):
             return
 
         # Read fields
+        changed=False
         try:
             match fname:
                 case "name":
@@ -1349,34 +1484,51 @@ class GUI(tk.Tk):
                                 raise ValueError(f"\nDuplicate name")
                         self.model.keystrokes={(name if n==old_name else n): v for n, v in self.model.keystrokes.items()}
                         self.current_keystroke = name
+                        changed=True
 
 
                     self.keystroke_entries[fname].config(style="TEntry")
                 case "weight":
                     weight_s = self.keystroke_fields["weight"].get().strip()
-                    if weight_s == "":
-                        raise ValueError(f"\nEmpty input")
+                    temp_value=self.model.keystrokes[self.current_keystroke].get("weight",None)
+                    if not weight_s:
+                        self.model.keystrokes[self.current_keystroke]["weight"]=None
                     else:
                         if "." in weight_s:
                             weight = float(weight_s)
                         else:
                             weight = int(weight_s)
                         self.model.keystrokes[self.current_keystroke]["weight"]=weight
+                    if temp_value!=self.model.keystrokes[self.current_keystroke].get("weight",None):
+                        changed=True
                     self.keystroke_entries[fname].config(style="TEntry")
                 case "layer":
                     layer = self.keystroke_fields["layer"].get()
-                    if layer not in {"base", "both", "any", "shift"}:
+                    temp_value=self.model.keystrokes[self.current_keystroke].get("layer",None)
+                    if not layer:
+                        layer="any"
+                    elif layer not in {"base", "both", "any", "shift"}:
                         return
                     self.model.keystrokes[self.current_keystroke]["layer"]=layer
+                    if temp_value!=self.model.keystrokes[self.current_keystroke].get("layer",None):
+                        changed=True
                 case "keys":
                     keys_s = self.keystroke_fields["keys"].get().strip()
+                    temp_list=self.model.keystrokes[self.current_keystroke].get("keys",[]).copy()
                     keys_list = [k.strip() for k in keys_s.split(",") if k.strip()]
                     for k in keys_list:
                         self.model._is_key_correct_type(k, "keystroke.json")
-
+                    self.model.keystrokes[self.current_keystroke]["keys"]=keys_list
+                    if temp_list!=self.model.keystrokes[self.current_keystroke].get("keys",[]).copy():
+                        changed=True
                     self.keystroke_entries[fname].config(style="TEntry")
         except ValueError:
             self.keystroke_entries[fname].config(style="Invalid.TEntry")
+            return
+
+        if changed:
+            self.unsaved_keystrokes=True
+
 
         self._refresh_keystrokes(preserve_name=self.current_keystroke)
 
@@ -1384,18 +1536,21 @@ class GUI(tk.Tk):
         """Reload keystrokes from files."""
         try:
             self.model.load_keystrokes()
+            self.unsaved_keystrokes=False
             self._refresh_keystrokes()
             self.current_keystroke = None
         except Exception as e:
             messagebox.showerror("Error", f"Failed: {e}")
 
-    def _save_keystrokes(self):
+    def _save_keystrokes(self, show_message=True):
         """Save keystrokes to files."""
         try:
             self.model.save_keystrokes()
-            messagebox.showinfo("Success", "Keystrokes saved!")
+            self.unsaved_keystrokes=False
+            self.notebook.tab(self.tabs["keystrokes"], text="Keystrokes")
+            if show_message: messagebox.showinfo("Success", "Keystrokes saved!")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed: {e}")
+            messagebox.showerror("Error", f"Failed to save keystrokes: {e}")
 
     def _add_keystroke(self):
         n=len(self.model.keystrokes)
@@ -1415,6 +1570,11 @@ class GUI(tk.Tk):
         self._refresh_keystrokes()
 
     def _refresh_options(self):
+        if self.unsaved_options:
+            self.notebook.tab(self.tabs["options"], text="Options*")
+        else:
+            self.notebook.tab(self.tabs["options"], text="Options")
+
         for fname in ["finger_strain", "travel_distance", "use_count", "bad_roll","finger_stretch"]:
             self.metric_option_fields[fname].set(str(self.model.target_metrics[fname]))
         for fname in ["generation_limit", "auto_generate_shift_home", "dev_mode"]:
@@ -1423,16 +1583,19 @@ class GUI(tk.Tk):
     def _reload_options(self):
         try:
             self.model.load_options()
+            self.unsaved_options=False
             self._refresh_options()
         except Exception as e:
             messagebox.showerror("Error", f"Failed: {e}")
 
-    def _save_options(self):
+    def _save_options(self, show_message=True):
         try:
             self.model.save_options()
-            messagebox.showinfo("Success", "Options saved!")
+            self.unsaved_options=False
+            self.notebook.tab(self.tabs["options"], text="Options")
+            if show_message: messagebox.showinfo("Success", "Options saved!")
         except Exception as e:
-            messagebox.showerror("Error", f"Failed: {e}")
+            messagebox.showerror("Error", f"Failed to save opitons: {e}")
 
     def _on_metric_option_field_changed(self, field=None):
         
@@ -1440,18 +1603,24 @@ class GUI(tk.Tk):
             return
         try:
             val=float(self.metric_option_fields[field].get().strip())
+            temp_value=self.model.target_metrics.get(field,None)
             if val<0:
                 val=0
                 self.metric_option_fields[field].set(str(val))
             self.model.target_metrics[field]=val
+            if temp_value!=self.model.target_metrics.get(field,None):
+                self.unsaved_options=True
+                self.notebook.tab(self.tabs["options"], text="Options*")
             self.metric_option_entries[field].config(style="TEntry")
         except ValueError:
             self.metric_option_entries[field].config(style="Invalid.TEntry")
+            return
 
 
     def _on_mixed_option_field_changed(self, field=None):
         
         val=self.mixed_option_fields[field].get()
+        temp_value=self.model.settings.get(field,None)
         try:
             match field:
                 case "generation_limit":
@@ -1475,6 +1644,12 @@ class GUI(tk.Tk):
             self.model.settings[field]=val
         except ValueError:
             self.mixed_option_entries[field].config(style="Invalid.TEntry")
+            return
+        
+        if temp_value!=self.model.settings.get(field,None):
+            self.unsaved_options=True
+            self.notebook.tab(self.tabs["options"], text="Options*")
+
 
     def _start_optimization(self):
         """Start optimization subprocess."""
@@ -1620,6 +1795,25 @@ class GUI(tk.Tk):
             self.after_cancel(self._poll_id)
         if self.process:
             self.process.terminate()
+
+        if self.unsaved_options or self.unsaved_keystrokes or self.unsaved_finger or self.unsaved_fixed or self.unsaved_layout:
+            # Display popup with Yes / No / Cancel choices
+            response = messagebox.askyesnocancel(
+                "Unsaved Changes", 
+                "You have unsaved changes. Do you want to save all before exiting?"
+            )
+            
+            if response is True:       # User clicked "Yes"
+                if self.unsaved_layout: self._save_layout(False)
+                if self.unsaved_fixed: self._save_fixed(False)
+                if self.unsaved_finger: self._save_finger(False)
+                if self.unsaved_keystrokes: self._save_keystrokes(False)
+                if self.unsaved_options: self._save_options(False)
+                pass
+            elif response is False:    # User clicked "No" (exit without saving)
+                pass
+            else:
+                return
         self.destroy()
 
 if __name__ == "__main__":

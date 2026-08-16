@@ -6,7 +6,8 @@
             "spc",
             "s"
         ],
-        "layer": "any"
+        "layer": "any",
+        "weight": 3
     },
     "gold_pickaxe": {
         "keys": [

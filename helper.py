@@ -135,6 +135,11 @@ class Key:
     def set_pos(self, new_pos: Point):
         self._pos=new_pos
         self.fpos=self._pos+Point(self._width/2+self._offset,self._height/2)
+    def copy(self):
+        return Key(self._pos.x, self._pos.y,self._width,self._height,self._offset)
+
+    def __eq__(self, other):
+        return self._pos==other._pos and self._width==other._width and self._height==other._height and self._offset==other._offset
 
 class Validator:
     def __init__(self):
@@ -282,7 +287,6 @@ class AdvLayoutOrganizer(LayoutOrganizer):
                 rows[key._pos.y]=[name,]    
             else:
                 rows[key._pos.y].append(name)
-
         
 
         for row in rows.values():
@@ -294,15 +298,15 @@ class AdvLayoutOrganizer(LayoutOrganizer):
         layout=[]
 
         previous_y=self.left_most_y
-        for y, row in rows.items():
+        for y, row in sorted(rows.items()):
             previous_x=self.left_most_x
             aliged=False
             for name in row:
                 key=self.keys[name]
-                if (key._pos.x-previous_x)>1e-6:
+                if abs(key._pos.x-previous_x)>1e-6:
                     custom_keys["x"][name]=key._pos.x
                 if not aliged:
-                    if(key._pos.y-previous_y)>1e-6:
+                    if abs(key._pos.y-previous_y)>1e-6:
                         custom_keys["y"][name]=key._pos.y
                     previous_y=key._pos.y+key._height
                     aliged=True

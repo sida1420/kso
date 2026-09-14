@@ -1,6 +1,6 @@
 # KSO
 
-A multi-objective optimizer for automatically create keyboard layouts using Parallel Tampering to optimize keybind placements.
+A multi-objective optimizer for automatically create keyboard layouts using Parallel Tampering to optimize keybind placements. This is modified for minecraft search crafting specifically.
 
 
 <p align="center">

@@ -273,7 +273,8 @@ class Layout(Validator):
                             keystrokes_dict[name]["keys"][i]=self.special_keys[key][1]
                         else:
                             self.special_keys[key][1]=k
-        self.universal_keybinds_set|={self.special_keys['bspc'][1],self.special_keys['spc'][1],self.special_keys['home'][1],self.special_keys['sft'][1]}
+
+        self.universal_keybinds_set|={self.special_keys['home'][1],self.special_keys['sft'][1]}
 
         for name, keystroke in keystrokes_dict.items():
             if "layer" in keystroke:
@@ -340,6 +341,9 @@ class Layout(Validator):
         for i in range(len(self.keystrokes)):
             self.keystrokes[i]["weight"]/=self.total_weights
 
+
+
+
         # print(self.keystrokes)
         #add home, lsft, chat for safety
         self.keybinds=sorted({key for data in self.keystrokes for key in data['keys']}.union({self.special_keys['home'][1],self.special_keys['sft'][1],self.special_keys['chat'][1]}))
@@ -349,7 +353,18 @@ class Layout(Validator):
         self.available_keybinds=[i for i, key in enumerate(self.keybinds) if key not in self.fixed_keys.values() and key!=self.special_keys['chat'][1]]
 
 
+
+
         #special keys
+        #dealt with optional special keys
+        for name in ('bspc','spc'):
+            kb = self.special_keys[name][1]
+            if kb in self.keybind2idx:
+                self.universal_keybinds_set.add(kb)
+
+
+
+
         # self.special_keybinds=[]
         for k in self.special_keys:
             if self.special_keys[k][1] in self.keybind2idx:

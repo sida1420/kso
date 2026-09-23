@@ -45,6 +45,8 @@ def run():
     replicas = init.init(paras.population_size, layout)
     weight_vectors = init.init_weight_vectors(paras.target_metrics, paras.population_size, 50)
 
+    max_crossover_attempts=5
+
     # ─── Multiprocessing setup ───────────────────────────────────────────────
     n_workers = min(os.cpu_count() or 1, paras.population_size)
     # Chunk size: divide population evenly across workers
@@ -96,9 +98,19 @@ def run():
                 if i < paras.population_size - 1 and random.random() < 0.05:
                     p1 = replicas[i]
                     p2 = replicas[i + 1]
-                    candidates.append(
-                        decoder.decode(crossover.uniform_crossover_3d(decoder.encode(p1),
+                    child=None
+
+                    for _ in range(max_crossover_attempts):
+                        child=decoder.decode(crossover.uniform_crossover_3d(decoder.encode(p1),
                                                                         decoder.encode(p2)))
+                        if child is not None:
+                            break
+
+                    if child is None:
+                        print("WARNING: Your layout doesn't have enough active key slots to explore!")
+                        child=random.choice([p1, p2])[:]
+                    candidates.append(
+                        child
                     )
                 else:
                     candidates.append(mutator.mutate(replicas[i], temperatures[i]))

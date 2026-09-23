@@ -143,7 +143,16 @@ class RKPosDecoder:
                     if best_i is not None:
                         free[best_i], free[-1] = free[-1], free[best_i]
                         free.pop()
+
+        #A cheap way to check if the individual is correct
+        placed = set(v for v in ind if v is not None)
+        if any(kb not in placed for kb in self.idx2akb):
+            return None          # signal: failed to place every available keybind
+
+        
         return ind
+
+
 
 def uniform_crossover_3d(p1, p2):
     mask = np.random.rand(len(p1)) < 0.5

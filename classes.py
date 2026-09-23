@@ -24,6 +24,7 @@ class Layout(Validator):
 
         self._init_assigned_keys()
         self._init_home_keys()
+        self._validate_finger_home_keys()
         #TODO: check more carefully for finger, assigned fingers, home keys
         self._init_max_finger_dists()
         self._precompute()
@@ -557,6 +558,8 @@ class Layout(Validator):
                 print(f"WARNING: Home key [{key}] for finger [{finger}] is not active (not in fixed/available keys), skipping finger.")
 
 
+
+
         self.hand[0].sort()
         self.hand[1].sort()
 
@@ -576,6 +579,16 @@ class Layout(Validator):
 
             self.finger_natural_pos[finger_idx]=Point(natural_pos[hand]['x'][finger],natural_pos[hand]['y'][finger])
 
+
+    def _validate_finger_home_keys(self):
+        used_fingers = set(f for f in self.key_idx2finger_idx if f is not None)
+        missing = used_fingers - set(self.home_keys.keys())
+
+        if missing:
+            names = [self.idx2finger[f].upper() for f in missing]
+            raise ValueError(
+                f"\nFINGER(S) {names} ARE ASSIGNED WITH KEYS IN assigned_fingers.json BUT DON'T HAVE A HOME KEY IN home_keys.json!"
+            )
 
     def _init_parameters(self):
         self.finger_efforts={}

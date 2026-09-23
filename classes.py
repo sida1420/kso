@@ -24,6 +24,7 @@ class Layout(Validator):
 
         self._init_assigned_keys()
         self._init_home_keys()
+        #TODO: check more carefully for finger, assigned fingers, home keys
         self._init_max_finger_dists()
         self._precompute()
         self._init_visual()
@@ -155,6 +156,10 @@ class Layout(Validator):
 
         check_required_config_file(file_name)
         self.remaps=[{key: remap  for key, remap in layer.items()} for layer in self.fixed_keys]
+
+
+        
+
         layout=read_text_rows(file_name)
         for line in layout:
             for key in line:
@@ -179,19 +184,40 @@ class Layout(Validator):
                 self.remaps[1][key]=key
 
         self.key2idx=[{},{}]
-        self.sizes=[len(layer) for layer in self.remaps]
         self.idx2key=[]
-        
+
         j=0
-        for i, layer in enumerate(self.remaps):
-            for key in sorted(layer, key= lambda k: (self.keys[k]._pos.y,self.keys[k]._pos.x)):
-                self.key2idx[i][key]=j
-                self.idx2key.append(key)
-                j+=1
+        # base layer
+        for key in sorted(self.remaps[0], key= lambda k: (self.keys[k]._pos.y,self.keys[k]._pos.x)):
+            self.key2idx[0][key]=j
+            self.idx2key.append(key)
+            j+=1
 
-        self.layered_available_keys=[[j for key,j in layer.items() if key not in self.fixed_keys[i]] for i,layer in enumerate(self.key2idx)]
+        # chat is a PHYSICAL key, not a remap/keybind: give it its own key_idx
+        # (base layer, since it's pressed like a normal key) so distance/strain
+        # math has somewhere to point -- but it never touches self.remaps or
+        # self.fixed_keys, so it can never become an assignable/available slot.
+        chat_key = self.special_keys['chat'][0]  # still the raw key name (str) here
+        if chat_key not in self.key2idx[0]:
+            self.key2idx[0][chat_key]=j
+            self.idx2key.append(chat_key)
+            j+=1
+
+        self.sizes=[len(self.key2idx[0]), 0]  # placeholder, sizes[1] set below
+
+        # shift layer
+        for key in sorted(self.remaps[1], key= lambda k: (self.keys[k]._pos.y,self.keys[k]._pos.x)):
+            self.key2idx[1][key]=j
+            self.idx2key.append(key)
+            j+=1
+
+        self.sizes[1]=len(self.key2idx[1])
+
+        self.layered_available_keys=[
+            [j for key,j in layer.items() if key not in self.fixed_keys[i] and key != chat_key]
+            for i,layer in enumerate(self.key2idx)
+        ]
         self.available_keys=[key_idx for layer in self.layered_available_keys for key_idx in layer]
-
         #store if a key has it shifted couter part or vice versa
 
         self.counterparts={}
@@ -549,6 +575,7 @@ class Layout(Validator):
                 raise ValueError(f"\nFINGER [{finger.upper()}] DOESNT APPEAR IN [{hand.upper()}]:Y HAND IN {file_name} FILE!")
 
             self.finger_natural_pos[finger_idx]=Point(natural_pos[hand]['x'][finger],natural_pos[hand]['y'][finger])
+
 
     def _init_parameters(self):
         self.finger_efforts={}
